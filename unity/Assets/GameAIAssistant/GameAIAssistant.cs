@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEditor;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ using System;
 using UnityEditorInternal;
 
 // ============================================================
-// GameAIAssistant.cs - Unity AI Assistant Plugin v1.7
+// GameAIAssistant.cs - Unity AI Assistant Plugin v1.8
 // Supports: Cloud Models + Local Ollama Models
 // ============================================================
 
@@ -24,7 +24,7 @@ public class GameAIAssistant : EditorWindow
     private Vector2 settingsScroll;
     private List<Message> messages = new List<Message>();
     private bool isProcessing = false;
-    private string statusText = "Ready";
+    private string statusText = "就绪";
     private bool showSettings = false;
 
     // AI Config
@@ -47,6 +47,26 @@ public class GameAIAssistant : EditorWindow
     // Assets
     private string currentProjectName = "";
     private string currentUnityVersion = "";
+
+    // UI Layout Constants
+    private const float TOOLBAR_HEIGHT = 22f;
+    private const float STATUS_HEIGHT = 20f;
+    private const float INPUT_HEIGHT = 60f;
+    private const float INPUT_MARGIN = 5f;
+    private const float SEND_WIDTH = 60f;
+    private const float PADDING = 8f;
+    private const float CHAT_MIN_HEIGHT = 120f;
+
+    // Message colors
+    private static readonly Color COLOR_USER_BG = new Color(0.12f, 0.42f, 0.82f);
+    private static readonly Color COLOR_AI_BG = new Color(0.10f, 0.20f, 0.10f);
+    private static readonly Color COLOR_SYS_BG = new Color(0.18f, 0.18f, 0.18f);
+    private static readonly Color COLOR_USER_TXT = Color.white;
+    private static readonly Color COLOR_AI_TXT = new Color(0.75f, 1f, 0.75f);
+    private static readonly Color COLOR_SYS_TXT = new Color(0.65f, 0.65f, 0.65f);
+    private static readonly Color COLOR_SEND_BTN = new Color(0.18f, 0.68f, 0.28f);
+    private static readonly Color COLOR_THINKING = new Color(1f, 0.78f, 0.15f);
+    private static readonly Color COLOR_ORANGE = new Color(0.9f, 0.5f, 0.1f);
 
     // --- Model Lists ---
     private static readonly ModelInfo[] cloudModels = new ModelInfo[]
@@ -83,7 +103,7 @@ public class GameAIAssistant : EditorWindow
         new LocalModelInfo("qwen2.5:1.5b", "Qwen 2.5 1.5B", "4GB", "快", "普通笔记本"),
         new LocalModelInfo("qwen2.5:3b", "Qwen 2.5 3B", "6GB", "较快", "游戏本/台式机"),
         new LocalModelInfo("qwen2.5:7b", "Qwen 2.5 7B", "8GB", "中等", "游戏本/台式机"),
-        new LocalModelInfo("qwen2.5:14b", "Qwen 2.5 14B", "16GB", "慢", "高端电脑"),
+        new LocalModelInfo("qwen2.5:14b", "Qwen 2.5 14B", "16GB", "较慢", "高端电脑"),
         new LocalModelInfo("llama3:8b", "Llama 3 8B", "8GB", "中等", "通用英语"),
         new LocalModelInfo("codellama:7b", "Code Llama 7B", "8GB", "中等", "代码专用"),
         new LocalModelInfo("llama3.1:8b", "Llama 3.1 8B", "8GB", "中等", "最新Llama"),
@@ -96,34 +116,34 @@ public class GameAIAssistant : EditorWindow
     // --- Learning Tips ---
     private static readonly string[] learningTips = new string[]
     {
-        "提示：编辑器暂停时(Pause)也能运行异步协程",
-        "提示：使用 [ContextMenu] 属性可添加编辑器内右键菜单",
-        "提示：SerializedObject/SerializedProperty 支持批量修改",
-        "提示：AssetDatabase.FindAssets() 比 Directory.GetFiles 更快",
-        "提示：Undo.RecordObject() 配合 Undo.SetSnapshotGroup() 可实现多步撤销",
-        "提示：EditorUtility.SetDirty() 后不必每次都 SaveAssets()",
-        "提示：PropertyDrawer 支持异步操作和图标绘制",
-        "提示：预制体嵌套(PrefabNesting)可大幅减少 DrawCall",
-        "提示：StaticBatchingUtility.Combine 可手动合批动态物体",
-        "提示：光照探针代理体(LPPV)对移动物体光照插值很有用",
-        "提示：Ollama 本地模型完全免费，无 API 调用次数限制",
-        "提示：Unity 2022+ 原生支持 WebP 纹理格式",
+        "编辑器暂停时(Pause)也能运行协程",
+        "使用 [ContextMenu] 属性可添加右键菜单",
+        "SerializedObject/SerializedProperty 支持批量修改",
+        "AssetDatabase.FindAssets() 比 Directory.GetFiles 更快",
+        "Undo.RecordObject() 配合 Undo.SetSnapshotGroup() 可实现多步撤销",
+        "EditorUtility.SetDirty() 后不必每次调用 SaveAssets()",
+        "PropertyDrawer 不支持异步操作和绘图回调",
+        "预制体嵌套(PrefabNesting)可减少 DrawCall",
+        "StaticBatchingUtility.Combine 可手动合批动态物体",
+        "光照探针代理体(LPPV)对移动物体光照插值很有用",
+        "Ollama 本地模型完全免费，无需 API Key",
+        "Unity 2022+ 原生支持 WebP 纹理格式",
     };
 
     private static readonly string[] learningTips_en = new string[]
     {
-        "Tip: Coroutines run even when Editor is paused",
-        "Tip: Use [ContextMenu] attribute to add right-click menu in Editor",
-        "Tip: SerializedObject/SerializedProperty supports batch modifications",
-        "Tip: AssetDatabase.FindAssets() is faster than Directory.GetFiles",
-        "Tip: Undo.RecordObject() with Undo.SetSnapshotGroup() enables multi-step undo",
-        "Tip: No need to call SaveAssets() every time after EditorUtility.SetDirty()",
-        "Tip: PropertyDrawer supports async operations and custom icons",
-        "Tip: Prefab nesting can significantly reduce DrawCalls",
-        "Tip: StaticBatchingUtility.Combine manually batches dynamic objects",
-        "Tip: Light Probe Proxy Volume (LPPV) is useful for moving object lighting",
-        "Tip: Ollama local models are completely free with no API call limits",
-        "Tip: Unity 2022+ has native WebP texture format support",
+        "Coroutines run even when Editor is paused",
+        "Use [ContextMenu] attribute to add right-click menu",
+        "SerializedObject/SerializedProperty supports batch modifications",
+        "AssetDatabase.FindAssets() is faster than Directory.GetFiles",
+        "Undo.RecordObject() with Undo.SetSnapshotGroup() enables multi-step undo",
+        "No need to call SaveAssets() after EditorUtility.SetDirty()",
+        "PropertyDrawer does not support async operations",
+        "Prefab nesting can reduce DrawCalls",
+        "StaticBatchingUtility.Combine manually batches dynamic objects",
+        "LPPV is useful for moving object lighting interpolation",
+        "Ollama local models are completely free",
+        "Unity 2022+ has native WebP texture format support",
     };
 
     // --- Structs ---
@@ -134,7 +154,6 @@ public class GameAIAssistant : EditorWindow
         public string provider;
         public bool chinaFriendly;
         public string note;
-
         public ModelInfo(string i, string n, string p, bool c, string note)
         {
             id = i; name = n; provider = p; chinaFriendly = c; this.note = note;
@@ -148,7 +167,6 @@ public class GameAIAssistant : EditorWindow
         public string minRam;
         public string speed;
         public string suitable;
-
         public LocalModelInfo(string i, string n, string r, string s, string su)
         {
             id = i; name = n; minRam = r; speed = s; suitable = su;
@@ -197,26 +215,14 @@ public class GameAIAssistant : EditorWindow
         }
     }
 
-    private class OllamaTagsResponse
-    {
-        public List<OllamaModel> models;
-    }
-
-    private class OllamaModel
-    {
-        public string name;
-        public string modified_at;
-        public long size;
-    }
-
     // ============================================================
     // Menu Entry
     // ============================================================
     [MenuItem("Window/Game AI Assistant")]
     public static void ShowWindow()
     {
-        var window = GetWindow<GameAIAssistant>("Octopus AI");
-        window.minSize = new Vector2(420, 520);
+        var window = GetWindow<GameAIAssistant>("章鱼 AI 助手");
+        window.minSize = new Vector2(380, 450);
         window.Show();
     }
 
@@ -303,12 +309,43 @@ public class GameAIAssistant : EditorWindow
     // ============================================================
     void OnGUI()
     {
-        DrawToolbar();
+        float availableHeight = position.height;
+        float usedHeight = TOOLBAR_HEIGHT + STATUS_HEIGHT;
 
         if (showSettings)
-            DrawSettingsPanel();
+        {
+            // Settings Panel
+            DrawToolbar();
+            usedHeight += PADDING;
+            DrawSettingsPanel(ref usedHeight, availableHeight);
+        }
         else
-            DrawMainPanel();
+        {
+            // Main Chat Panel
+            DrawToolbar();
+            usedHeight += PADDING;
+
+            // Pending code blocks section
+            if (pendingCodeBlocks.Count > 0)
+            {
+                DrawPendingCodePanel();
+                usedHeight += 65f + PADDING;
+            }
+
+            // Chat area - fills remaining space
+            float chatHeight = availableHeight - usedHeight - INPUT_HEIGHT - STATUS_HEIGHT - INPUT_MARGIN;
+            chatHeight = Mathf.Max(chatHeight, CHAT_MIN_HEIGHT);
+
+            DrawChatArea(chatHeight);
+            usedHeight += chatHeight + INPUT_MARGIN;
+
+            // Input area
+            DrawInputArea();
+            usedHeight += INPUT_HEIGHT + INPUT_MARGIN;
+
+            // Status bar
+            DrawStatusBar();
+        }
     }
 
     void DrawToolbar()
@@ -316,22 +353,26 @@ public class GameAIAssistant : EditorWindow
         EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
         Color oldBg = GUI.backgroundColor;
-        GUI.backgroundColor = new Color(0.9f, 0.5f, 0.1f);
-        if (GUILayout.Button("Octopus AI", EditorStyles.toolbarButton, GUILayout.Width(100)))
+        GUI.backgroundColor = COLOR_ORANGE;
+        if (GUILayout.Button("章鱼 AI", EditorStyles.toolbarButton, GUILayout.Width(85)))
             showSettings = !showSettings;
         GUI.backgroundColor = oldBg;
 
         GUILayout.FlexibleSpace();
 
-        if (GUILayout.Button(modelType == "local" ? "Local: " + selectedLocalModel : "Cloud: " + selectedModel,
-            EditorStyles.toolbarDropDown, GUILayout.Width(200)))
+        // Model selector dropdown
+        string modelDisplay = modelType == "local"
+            ? "本地 [" + selectedLocalModel + "]"
+            : "云端 [" + GetModelDisplayName(selectedModel) + "]";
+
+        if (GUILayout.Button(modelDisplay, EditorStyles.toolbarDropDown, GUILayout.Width(200)))
         {
             ShowModelSelector();
         }
 
         EditorGUILayout.Space(5);
 
-        if (GUILayout.Button("Settings", EditorStyles.toolbarButton, GUILayout.Width(70)))
+        if (GUILayout.Button("设置", EditorStyles.toolbarButton, GUILayout.Width(55)))
         {
             showSettings = !showSettings;
         }
@@ -339,11 +380,20 @@ public class GameAIAssistant : EditorWindow
         EditorGUILayout.EndHorizontal();
     }
 
+    string GetModelDisplayName(string modelId)
+    {
+        foreach (var m in cloudModels)
+            if (m.id == modelId) return m.name;
+        foreach (var m in localModels)
+            if (m.id == modelId) return m.name;
+        return modelId;
+    }
+
     void ShowModelSelector()
     {
-        GenericMenu menu = new GenericMenu();
+        var menu = new GenericMenu();
 
-        menu.AddItem(new GUIContent("Cloud Models"), modelType == "cloud", () =>
+        menu.AddItem(new GUIContent("云端模型"), modelType == "cloud", () =>
         {
             modelType = "cloud";
             SaveConfig();
@@ -351,9 +401,7 @@ public class GameAIAssistant : EditorWindow
 
         foreach (var m in cloudModels)
         {
-            string label = $"Cloud/{m.name} ({m.id})";
-            if (m.chinaFriendly)
-                label += " [CN]";
+            string label = m.name + " (" + m.id + ")" + (m.chinaFriendly ? " [CN]" : "");
             menu.AddItem(new GUIContent(label), selectedModel == m.id && modelType == "cloud", () =>
             {
                 modelType = "cloud";
@@ -364,7 +412,7 @@ public class GameAIAssistant : EditorWindow
 
         menu.AddSeparator("");
 
-        menu.AddItem(new GUIContent("Local Models (Ollama)"), modelType == "local", () =>
+        menu.AddItem(new GUIContent("本地模型 (Ollama)"), modelType == "local", () =>
         {
             modelType = "local";
             SaveConfig();
@@ -372,7 +420,7 @@ public class GameAIAssistant : EditorWindow
 
         foreach (var m in localModels)
         {
-            string label = $"Local/{m.name} ({m.id})";
+            string label = m.name + " (" + m.id + ") - " + m.minRam;
             menu.AddItem(new GUIContent(label), selectedLocalModel == m.id && modelType == "local", () =>
             {
                 modelType = "local";
@@ -384,192 +432,132 @@ public class GameAIAssistant : EditorWindow
         menu.ShowAsContext();
     }
 
-    void DrawSettingsPanel()
+    void DrawSettingsPanel(ref float usedHeight, float availableHeight)
     {
-        settingsScroll = EditorGUILayout.BeginScrollView(settingsScroll);
+        float panelHeight = availableHeight - usedHeight;
+        settingsScroll = EditorGUILayout.BeginScrollView(settingsScroll, GUILayout.Height(panelHeight));
 
         EditorGUILayout.Space(5);
 
-        // --- Model Type ---
-        EditorGUILayout.LabelField("Model Settings", EditorStyles.boldLabel);
+        // --- Model Settings ---
+        EditorGUILayout.LabelField("模型设置", EditorStyles.boldLabel);
         EditorGUILayout.BeginVertical("box");
 
-        modelType = EditorGUILayout.Popup("Model Type", modelType == "cloud" ? 0 : 1, new string[] { "Cloud (API)", "Local (Ollama)" }) == 0 ? "cloud" : "local";
+        modelType = EditorGUILayout.Popup("模型类型", modelType == "cloud" ? 0 : 1,
+            new string[] { "云端 API", "本地 Ollama" }) == 0 ? "cloud" : "local";
 
         if (modelType == "cloud")
         {
-            // Cloud model selector
-            int currentIdx = -1;
+            int cloudIdx = -1;
             for (int i = 0; i < cloudModels.Length; i++)
-            {
-                if (cloudModels[i].id == selectedModel) { currentIdx = i; break; }
-            }
-            if (currentIdx < 0) currentIdx = 0;
-            currentIdx = EditorGUILayout.Popup("Model", currentIdx, Array.ConvertAll(cloudModels, m => m.name));
-            selectedModel = cloudModels[currentIdx].id;
-
+                if (cloudModels[i].id == selectedModel) { cloudIdx = i; break; }
+            if (cloudIdx < 0) cloudIdx = 0;
+            cloudIdx = EditorGUILayout.Popup("选择模型", cloudIdx,
+                Array.ConvertAll(cloudModels, m => m.name + (m.chinaFriendly ? " [国内]" : "")));
+            selectedModel = cloudModels[cloudIdx].id;
             EditorGUILayout.Space(3);
             apiKey = EditorGUILayout.PasswordField("API Key", apiKey);
-
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Test Connection"))
-            {
+            if (GUILayout.Button("测试连接"))
                 _ = TestCloudConnection();
-            }
-            if (GUILayout.Button("Get API Key"))
-            {
+            if (GUILayout.Button("获取 API Key"))
                 Application.OpenURL(GetModelKeyUrl(selectedModel));
-            }
             EditorGUILayout.EndHorizontal();
         }
         else
         {
-            // Local Ollama settings
             EditorGUILayout.HelpBox("Ollama 本地模型 - 完全免费，无需 API Key\n下载地址: https://ollama.com/download", MessageType.Info);
-
             EditorGUILayout.Space(3);
-            localUrl = EditorGUILayout.TextField("Ollama URL", localUrl);
+            localUrl = EditorGUILayout.TextField("Ollama 地址", localUrl);
 
             int localIdx = -1;
             for (int i = 0; i < localModels.Length; i++)
-            {
                 if (localModels[i].id == selectedLocalModel) { localIdx = i; break; }
-            }
-            if (localIdx < 0) localIdx = 2; // default to qwen2.5:3b
-            localIdx = EditorGUILayout.Popup("Local Model", localIdx, Array.ConvertAll(localModels, m => m.name + " (" + m.minRam + ")"));
+            if (localIdx < 0) localIdx = 2;
+            localIdx = EditorGUILayout.Popup("本地模型", localIdx,
+                Array.ConvertAll(localModels, m => m.name + " (" + m.minRam + ")"));
             selectedLocalModel = localModels[localIdx].id;
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Check Ollama Status"))
-            {
+            if (GUILayout.Button("检查 Ollama 状态"))
                 _ = TestOllamaConnection();
-            }
-            if (GUILayout.Button("Download Model"))
-            {
+            if (GUILayout.Button("下载模型"))
                 Application.OpenURL("https://ollama.com/library/" + selectedLocalModel.Split(':')[0]);
-            }
             EditorGUILayout.EndHorizontal();
         }
 
         EditorGUILayout.EndVertical();
-
         EditorGUILayout.Space(5);
 
         // --- Language ---
-        EditorGUILayout.LabelField("Language / 语言", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("界面语言", EditorStyles.boldLabel);
         EditorGUILayout.BeginVertical("box");
         int langIdx = selectedLanguage == "zh" ? 0 : 1;
-        langIdx = EditorGUILayout.Popup("Language", langIdx, new string[] { "中文", "English" });
+        langIdx = EditorGUILayout.Popup("语言", langIdx, new string[] { "中文", "English" });
         selectedLanguage = langIdx == 0 ? "zh" : "en";
         EditorGUILayout.EndVertical();
-
         EditorGUILayout.Space(5);
 
         // --- Other Settings ---
-        EditorGUILayout.LabelField("Other Settings", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("其他设置", EditorStyles.boldLabel);
         EditorGUILayout.BeginVertical("box");
-        autoContext = EditorGUILayout.Toggle("Auto Add Context (发送时附加项目信息)", autoContext);
+        autoContext = EditorGUILayout.Toggle("发送时自动附加项目信息", autoContext);
 
-        if (GUILayout.Button("Save & Apply"))
+        if (GUILayout.Button("保存设置"))
         {
             SaveConfig();
-            AddMessage(selectedLanguage == "zh" ? "配置已保存！" : "Settings saved!", false);
+            AddMessage(selectedLanguage == "zh" ? "设置已保存！" : "Settings saved!", false);
         }
 
-        if (GUILayout.Button("Open Knowledge Base"))
-        {
+        if (GUILayout.Button("打开知识库文件夹"))
             OpenKnowledgeBase();
-        }
 
-        if (GUILayout.Button("Clear Chat"))
-        {
+        if (GUILayout.Button("清空对话"))
             messages.Clear();
-        }
 
         EditorGUILayout.EndVertical();
 
         EditorGUILayout.EndScrollView();
     }
 
-    void DrawMainPanel()
+    void DrawChatArea(float chatHeight)
     {
-        // Project info bar
-        EditorGUILayout.BeginVertical("box");
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.Label(currentProjectName, EditorStyles.miniLabel);
-        GUILayout.FlexibleSpace();
-        GUILayout.Label("Unity " + currentUnityVersion, EditorStyles.miniLabel);
-        EditorGUILayout.EndHorizontal();
-        EditorGUILayout.EndVertical();
+        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(chatHeight));
 
-        // Chat area
-        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(Mathf.Max(200, position.height - 220)));
-
-        foreach (var msg in messages)
+        if (messages.Count == 0)
         {
-            DrawMessage(msg);
-        }
-
-        EditorGUILayout.EndScrollView();
-
-        // Pending code blocks
-        if (pendingCodeBlocks.Count > 0)
-        {
-            EditorGUILayout.BeginVertical("box");
-            string lang = selectedLanguage;
-            string title = lang == "zh"
-                ? $"待应用代码块 ({pendingCodeBlocks.Count}个)"
-                : $"Pending Code Blocks ({pendingCodeBlocks.Count})";
-            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
-
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button(lang == "zh" ? "应用 #1" : "Apply #1"))
-                ApplyPending(0);
-            if (pendingCodeBlocks.Count > 1 && GUILayout.Button(lang == "zh" ? "全部应用" : "Apply All"))
-            {
-                while (pendingCodeBlocks.Count > 0)
-                    ApplyPending(0);
-            }
-            if (GUILayout.Button(lang == "zh" ? "跳过" : "Skip"))
-                SkipPending();
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
-        }
-
-        EditorGUILayout.Space(3);
-
-        // Input area
-        EditorGUILayout.BeginHorizontal();
-        GUI.SetNextControlName("InputField");
-        inputText = EditorGUILayout.TextField(inputText, GUILayout.Height(60));
-
-        Color oldBg = GUI.backgroundColor;
-        GUI.backgroundColor = new Color(0.2f, 0.7f, 0.3f);
-        GUI.enabled = !isProcessing;
-        if (GUILayout.Button("Send", GUILayout.Width(60), GUILayout.Height(60)))
-        {
-            SendMessage();
-        }
-        GUI.enabled = true;
-        GUI.backgroundColor = oldBg;
-        EditorGUILayout.EndHorizontal();
-
-        // Status bar
-        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-        if (isProcessing)
-        {
-            GUI.backgroundColor = new Color(1f, 0.8f, 0.2f);
-            GUILayout.Label("Thinking...", EditorStyles.miniLabel);
-            GUI.backgroundColor = oldBg;
+            DrawWelcomeMessage();
         }
         else
         {
-            GUILayout.Label(statusText, EditorStyles.miniLabel);
+            foreach (var msg in messages)
+            {
+                DrawMessage(msg);
+            }
         }
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(modelType == "local" ? "Local [" + selectedLocalModel + "]" : "Cloud [" + selectedModel + "]",
-            EditorStyles.miniLabel);
-        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.EndScrollView();
+    }
+
+    void DrawWelcomeMessage()
+    {
+        Color oldBg = GUI.backgroundColor;
+        GUI.backgroundColor = COLOR_AI_BG;
+
+        EditorGUILayout.BeginVertical("box", GUILayout.MinHeight(80));
+        GUILayout.Space(5);
+        GUILayout.Label("🐙 章鱼 AI 助手", EditorStyles.boldLabel);
+        GUILayout.Space(3);
+
+        string welcomeText = selectedLanguage == "zh"
+            ? "你好！我是章鱼 AI 助手，可以帮你：\n• 编写 Unity C# 脚本\n• 搜索免费可商用的游戏素材\n• 解释 Unity 概念和 API\n• 诊断和修复 Bug\n\n输入你的问题，然后按 发送 按钮或按 Enter 键发送！"
+            : "Hello! I'm Octopus AI Assistant.\n• Write Unity C# scripts\n• Search for free game assets\n• Explain Unity concepts\n• Fix bugs\n\nType your question and press Send or Enter!";
+
+        GUILayout.Label(welcomeText, EditorStyles.wordWrappedLabel, GUILayout.MinHeight(60));
+        GUILayout.Space(5);
+        EditorGUILayout.EndVertical();
+
+        GUI.backgroundColor = oldBg;
     }
 
     void DrawMessage(Message msg)
@@ -579,34 +567,39 @@ public class GameAIAssistant : EditorWindow
 
         if (msg.role == "user")
         {
-            GUI.backgroundColor = new Color(0.15f, 0.45f, 0.85f);
-            txtColor = Color.white;
+            GUI.backgroundColor = COLOR_USER_BG;
+            txtColor = COLOR_USER_TXT;
         }
         else if (msg.role == "assistant")
         {
-            GUI.backgroundColor = new Color(0.12f, 0.25f, 0.12f);
-            txtColor = new Color(0.8f, 1f, 0.8f);
+            GUI.backgroundColor = COLOR_AI_BG;
+            txtColor = COLOR_AI_TXT;
         }
         else
         {
-            GUI.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
-            txtColor = new Color(0.7f, 0.7f, 0.7f);
+            GUI.backgroundColor = COLOR_SYS_BG;
+            txtColor = COLOR_SYS_TXT;
         }
 
+        string roleLabel = msg.role == "user" ? "你" : msg.role == "assistant" ? "AI" : "系统";
+
+        EditorGUILayout.BeginVertical("box");
         EditorGUILayout.BeginHorizontal();
+
         Color oldTxt = GUI.contentColor;
         GUI.contentColor = txtColor;
-        string roleLabel = msg.role == "user" ? "[User]" : msg.role == "assistant" ? "[AI]" : "[System]";
-        GUILayout.Label(roleLabel, GUILayout.Width(60));
 
-        // Show apply button for assistant messages with code
-        if (msg.role == "assistant" && (msg.content.Contains("```csharp") || msg.content.Contains("```cs")))
+        GUILayout.Label(roleLabel + ":", GUILayout.Width(50));
+
+        // Copy button for AI messages with code
+        if (msg.role == "assistant" && msg.content.Contains("```"))
         {
-            if (GUILayout.Button(selectedLanguage == "zh" ? "复制代码" : "Copy Code", EditorStyles.miniButton, GUILayout.Width(80)))
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("复制代码", EditorStyles.miniButton, GUILayout.Width(70)))
             {
                 string code = ExtractCode(msg.content);
                 EditorGUIUtility.systemCopyBuffer = code;
-                statusText = selectedLanguage == "zh" ? "代码已复制!" : "Code copied!";
+                statusText = selectedLanguage == "zh" ? "代码已复制！" : "Code copied!";
             }
         }
 
@@ -614,14 +607,135 @@ public class GameAIAssistant : EditorWindow
         EditorGUILayout.EndHorizontal();
 
         string display = msg.content;
-        if (display.Length > 3000)
-            display = display.Substring(0, 3000) + "\n... (truncated)";
+        if (display.Length > 4000)
+            display = display.Substring(0, 4000) + "\n... (内容过长已截断)";
 
         var style = new GUIStyle(EditorStyles.label) { wordWrap = true, richText = true };
         GUILayout.Label(display, style, GUILayout.MinHeight(20));
-        EditorGUILayout.Space(3);
+        GUILayout.Space(2);
+        EditorGUILayout.EndVertical();
+
+        GUILayout.Space(3);
+        GUI.backgroundColor = oldBg;
+    }
+
+    void DrawPendingCodePanel()
+    {
+        Color oldBg = GUI.backgroundColor;
+        GUI.backgroundColor = new Color(0.25f, 0.2f, 0.3f);
+
+        EditorGUILayout.BeginVertical("box");
+        string lang = selectedLanguage;
+        string title = "待应用代码块 (" + pendingCodeBlocks.Count + "个)";
+        EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("应用 #1"))
+            ApplyPending(0);
+        if (pendingCodeBlocks.Count > 1 && GUILayout.Button("全部应用"))
+        {
+            while (pendingCodeBlocks.Count > 0)
+                ApplyPending(0);
+        }
+        if (GUILayout.Button("跳过"))
+            SkipPending();
+        EditorGUILayout.EndHorizontal();
+        EditorGUILayout.EndVertical();
+
+        GUILayout.Space(PADDING);
+        GUI.backgroundColor = oldBg;
+    }
+
+    void DrawInputArea()
+    {
+        EditorGUILayout.BeginHorizontal();
+
+        GUI.SetNextControlName("ChatInputField");
+        EditorGUI.BeginChangeCheck();
+        inputText = EditorGUILayout.TextField(inputText, GUILayout.Height(INPUT_HEIGHT));
+        bool textChanged = EditorGUI.EndChangeCheck();
+
+        Color oldBg = GUI.backgroundColor;
+        GUI.backgroundColor = isProcessing ? Color.gray : COLOR_SEND_BTN;
+        GUI.enabled = !isProcessing && !string.IsNullOrWhiteSpace(inputText);
+        if (GUILayout.Button("发送", GUILayout.Width(SEND_WIDTH), GUILayout.Height(INPUT_HEIGHT)))
+        {
+            SendMessage();
+        }
+        GUI.enabled = true;
+        GUI.backgroundColor = oldBg;
+
+        EditorGUILayout.EndHorizontal();
+    }
+
+    void DrawStatusBar()
+    {
+        Color oldBg = GUI.backgroundColor;
+        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+
+        if (isProcessing)
+        {
+            GUI.backgroundColor = COLOR_THINKING;
+            GUILayout.Label("思考中...", EditorStyles.miniLabel);
+        }
+        else
+        {
+            GUILayout.Label(statusText, EditorStyles.miniLabel);
+        }
+
+        GUILayout.FlexibleSpace();
+
+        string modelInfo = modelType == "local"
+            ? "本地 [" + selectedLocalModel + "]"
+            : "云端 [" + GetModelDisplayName(selectedModel) + "]";
+        GUILayout.Label(modelInfo, EditorStyles.miniLabel);
 
         GUI.backgroundColor = oldBg;
+        EditorGUILayout.EndHorizontal();
+    }
+
+    // ============================================================
+    // Keyboard Events - Handle Enter Key
+    // ============================================================
+    void OnInspectorUpdate()
+    {
+        // Force repaint for smooth UI
+        Repaint();
+    }
+
+    public override void OnGUI(Rect rect)
+    {
+        // Handle Enter key
+        Event e = Event.current;
+        if (e.type == EventType.KeyDown && GUI.GetNameOfFocusedControl() == "ChatInputField")
+        {
+            if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
+            {
+                if (!string.IsNullOrWhiteSpace(inputText) && !isProcessing)
+                {
+                    SendMessage();
+                    e.Use();
+                }
+            }
+        }
+
+        // Fallback: catch Enter anywhere when input has text
+        if (e.type == EventType.KeyDown)
+        {
+            if ((e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
+                && GUI.GetNameOfFocusedControl() == "ChatInputField"
+                && !isProcessing)
+            {
+                if (!string.IsNullOrWhiteSpace(inputText))
+                {
+                    SendMessage();
+                    e.Use();
+                }
+            }
+        }
+
+        // Call base OnGUI
+        base.OnGUI(rect);
     }
 
     // ============================================================
@@ -630,6 +744,7 @@ public class GameAIAssistant : EditorWindow
     void AddMessage(string content, bool isUser)
     {
         messages.Add(new Message(isUser ? "user" : "assistant", content));
+        // Auto-scroll to bottom
         scrollPos.y = float.MaxValue;
         Repaint();
     }
@@ -639,7 +754,6 @@ public class GameAIAssistant : EditorWindow
         var match = Regex.Match(text, @"```(?:csharp|cs|gdscript)?\s*\n?([\s\S]*?)```");
         if (match.Success)
             return match.Groups[1].Value.Trim();
-        // fallback: just return the whole text
         return text;
     }
 
@@ -653,9 +767,10 @@ public class GameAIAssistant : EditorWindow
 
         string userMsg = inputText.Trim();
         inputText = "";
+        inputText = ""; // Clear the text field
+        GUI.FocusControl(null); // Remove focus to prevent repeated sends
         AddMessage(userMsg, true);
 
-        // Handle commands
         if (HandleCommand(userMsg)) return;
 
         isProcessing = true;
@@ -669,32 +784,15 @@ public class GameAIAssistant : EditorWindow
     {
         string c = cmd.Trim().ToLower();
 
-        if (c == "/clear" || c == "/cls")
-        { ClearMessages(); return true; }
-
-        if (c == "/undo")
-        { PerformUndo(); return true; }
-
-        if (c == "/redo")
-        { PerformRedo(); return true; }
-
-        if (c == "/screenshot")
-        { TakeScreenshot(); return true; }
-
-        if (c == "/context")
-        { AddProjectContext(); return true; }
-
-        if (c == "/learn")
-        { _ = DailyLearning(); return true; }
-
-        if (c == "/help")
-        { ShowHelp(); return true; }
-
-        if (c == "/skip")
-        { SkipPending(); return true; }
-
-        if (c == "/models")
-        { ListModels(); return true; }
+        if (c == "/clear" || c == "/cls") { messages.Clear(); return true; }
+        if (c == "/undo") { PerformUndo(); return true; }
+        if (c == "/redo") { PerformRedo(); return true; }
+        if (c == "/screenshot") { TakeScreenshot(); return true; }
+        if (c == "/context") { AddProjectContext(); return true; }
+        if (c == "/learn") { _ = DailyLearning(); return true; }
+        if (c == "/help") { ShowHelp(); return true; }
+        if (c == "/skip") { SkipPending(); return true; }
+        if (c == "/models") { ListModels(); return true; }
 
         if (c.StartsWith("/apply "))
         {
@@ -707,70 +805,34 @@ public class GameAIAssistant : EditorWindow
         return false;
     }
 
-    void ClearMessages()
-    {
-        messages.Clear();
-        AddMessage(selectedLanguage == "zh" ? "对话已清空" : "Chat cleared", false);
-    }
-
     void ShowHelp()
     {
-        string lang = selectedLanguage;
-        string help = lang == "zh" ? @"Octopus AI - 命令列表:
-/help   - 显示此帮助
-/clear  - 清空对话
-/context - 添加项目上下文
-/screenshot - 截图
-/learn  - 每日学习
-/apply N - 应用第N个代码块
-/skip   - 跳过所有待应用代码
-/undo   - 撤销
-/redo   - 重做
-/models - 列出所有可用模型
-" : @"Octopus AI - Commands:
-/help   - Show this help
-/clear  - Clear chat
-/context - Add project context
-/screenshot - Screenshot
-/learn  - Daily learning
-/apply N - Apply code block N
-/skip   - Skip all pending blocks
-/undo   - Undo
-/redo   - Redo
-/models - List all models
-";
+        string help = selectedLanguage == "zh"
+            ? "命令列表:\n/help   - 显示帮助\n/clear  - 清空对话\n/context - 添加项目信息\n/screenshot - 截图\n/learn  - 每日学习\n/apply N - 应用第N个代码\n/skip   - 跳过待应用代码\n/undo   - 撤销\n/redo   - 重做\n/models - 列出可用模型"
+            : "Commands:\n/help   - Show help\n/clear  - Clear chat\n/context - Add project info\n/screenshot - Screenshot\n/learn  - Daily learning\n/apply N - Apply block N\n/skip   - Skip pending\n/undo   - Undo\n/redo   - Redo\n/models - List models";
         AddMessage(help, false);
     }
 
     void ListModels()
     {
-        string lang = selectedLanguage;
-        string output = lang == "zh" ? "=== Cloud Models ===\n" : "=== Cloud Models ===\n";
+        string output = selectedLanguage == "zh"
+            ? "=== 云端模型 ===\n" : "=== Cloud Models ===\n";
         foreach (var m in cloudModels)
-            output += $"- {m.name}: {m.id}\n";
+            output += m.name + ": " + m.id + "\n";
 
-        output += "\n=== Local Ollama Models ===\n";
+        output += "\n=== 本地 Ollama ===\n";
         foreach (var m in localModels)
-            output += $"- {m.name} ({m.id}) - 需要 {m.minRam} RAM\n";
+            output += m.name + " (" + m.id + ") - 需要 " + m.minRam + " RAM\n";
 
-        output += $"\n当前模式: {(modelType == "local" ? "Local" : "Cloud")}";
+        output += "\n当前模式: " + (modelType == "local" ? "本地" : "云端");
         AddMessage(output, false);
     }
 
     void AddProjectContext()
     {
-        string lang = selectedLanguage;
-        string context = lang == "zh" ? $@"[项目上下文]
-项目名称: {currentProjectName}
-Unity版本: {currentUnityVersion}
-API: Unity {PlayerSettings.apiCompatibilityLevel.ToString()}
-平台: {Application.platform}
-" : $@"[Project Context]
-Project: {currentProjectName}
-Unity: {currentUnityVersion}
-API: Unity {PlayerSettings.apiCompatibilityLevel.ToString()}
-Platform: {Application.platform}
-";
+        string context = selectedLanguage == "zh"
+            ? "[项目信息]\n项目名: " + currentProjectName + "\nUnity: " + currentUnityVersion + "\n平台: " + Application.platform
+            : "[Project Info]\nProject: " + currentProjectName + "\nUnity: " + currentUnityVersion + "\nPlatform: " + Application.platform;
         AddMessage(context, false);
     }
 
@@ -787,7 +849,7 @@ Platform: {Application.platform}
                     ? "请先在设置中配置 API Key！"
                     : "Please configure your API Key in Settings!", false);
                 isProcessing = false;
-                statusText = "Ready";
+                statusText = "就绪";
                 return;
             }
 
@@ -801,7 +863,7 @@ Platform: {Application.platform}
                 client.Timeout = TimeSpan.FromSeconds(modelType == "local" ? 180 : 120);
                 client.DefaultRequestHeaders.Clear();
                 if (!string.IsNullOrEmpty(key))
-                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {key}");
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + key);
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var response = await client.PostAsync(url, content);
@@ -809,7 +871,7 @@ Platform: {Application.platform}
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    string errMsg = $"Error ({response.StatusCode}): {responseText.Substring(0, Math.Min(300, responseText.Length))}";
+                    string errMsg = "错误 (" + (int)response.StatusCode + "): " + responseText.Substring(0, Math.Min(300, responseText.Length));
                     AddMessage(errMsg, false);
                 }
                 else
@@ -822,12 +884,12 @@ Platform: {Application.platform}
         }
         catch (Exception ex)
         {
-            AddMessage($"Error: {ex.Message}", false);
+            AddMessage("错误: " + ex.Message, false);
         }
         finally
         {
             isProcessing = false;
-            statusText = "Ready";
+            statusText = "就绪";
             Repaint();
         }
     }
@@ -835,13 +897,10 @@ Platform: {Application.platform}
     List<Dictionary<string, string>> BuildMessages(string userMessage)
     {
         var msgs = new List<Dictionary<string, string>>();
-        string sysPrompt = GetSystemPrompt();
-        msgs.Add(new Dictionary<string, string> { { "role", "system" }, { "content", sysPrompt } });
+        msgs.Add(new Dictionary<string, string> { { "role", "system" }, { "content", GetSystemPrompt() } });
 
         foreach (var msg in messages)
-        {
             msgs.Add(new Dictionary<string, string> { { "role", msg.role }, { "content", msg.content } });
-        }
 
         msgs.Add(new Dictionary<string, string> { { "role", "user" }, { "content", userMessage } });
         return msgs;
@@ -849,228 +908,104 @@ Platform: {Application.platform}
 
     string GetSystemPrompt()
     {
-        string lang = selectedLanguage;
-
-        if (lang == "zh")
+        if (selectedLanguage == "zh")
         {
-            return $@"你是一个专业的 Unity 游戏开发 AI 助手，名字叫 Octopus。
-
-## 你的能力
-1. 生成 Unity C# 脚本
+            return @"你是一个专业的 Unity 游戏开发 AI 助手，名字叫章鱼。
+你的能力：
+1. 创建 Unity C# 脚本
 2. 修改现有代码
 3. 搜索免费可商用的游戏素材
 4. 解释 Unity 概念和 API
 5. 诊断和修复 Bug
-
-## 代码格式
-- 使用 C# for Unity
-- 代码用 ```csharp 包裹
-- 添加注释
-
-## 提示
-- 如果生成了代码，提醒用户可以用 /apply N 来保存
-- 简洁实用，像和朋友聊天一样
-- 可以建议用户保存重要信息到知识库
-
-## 当前项目
-项目名: {currentProjectName}
-Unity版本: {currentUnityVersion}
-平台: {Application.platform}
-";
+代码格式：使用 C#，用 ```csharp 包裹代码，添加注释。
+如果生成了代码，提醒用户可以用 /apply N 来保存代码。
+当前项目：" + currentProjectName + "，Unity " + currentUnityVersion;
         }
         else
         {
-            return $@"You are a professional Unity game development AI assistant named Octopus.
-
-## Your Capabilities
-1. Generate Unity C# scripts
-2. Modify existing code
-3. Search for free commercially-usable game assets
-4. Explain Unity concepts and APIs
-5. Diagnose and fix bugs
-
-## Code Format
-- Use C# for Unity
-- Wrap code in ```csharp
-- Add comments
-
-## Tips
-- If code is generated, remind user they can type /apply N to save
-- Be concise and practical
-- Suggest saving important info to Knowledge Base
-
-## Current Project
-Project: {currentProjectName}
-Unity: {currentUnityVersion}
-Platform: {Application.platform}
-";
+            return @"You are a professional Unity game development AI assistant named Octopus.
+Your capabilities: write C# scripts, modify code, search assets, explain APIs, fix bugs.
+Code format: use C#, wrap in ```csharp, add comments.
+If code is generated, remind user to use /apply N to save.
+Current project: " + currentProjectName + ", Unity " + currentUnityVersion;
         }
     }
 
     string BuildRequestJson(List<Dictionary<string, string>> messages_list)
     {
-        var msgsArray = new List<object>();
-        foreach (var m in messages_list)
-            msgsArray.Add(m);
-
-        if (modelType == "cloud")
+        if (modelType == "local")
         {
-            // OpenAI-compatible format
-            if (selectedModel.Contains("claude"))
-            {
-                // Anthropic format
-                return JsonUtility.ToJson(new
-                {
-                    model = selectedModel,
-                    messages = messages_list.Where(m => m["role"] != "system").ToList(),
-                    system = messages_list.FirstOrDefault(m => m["role"] == "system")?["content"] ?? "",
-                    max_tokens = 4000,
-                    temperature = 0.7
-                });
-            }
-            else
-            {
-                return JsonUtility.ToJson(new
-                {
-                    model = selectedModel,
-                    messages = msgsArray,
-                    max_tokens = 4000,
-                    temperature = 0.7
-                });
-            }
-        }
-        else
-        {
-            // Ollama format (local)
             return JsonUtility.ToJson(new
             {
                 model = selectedLocalModel,
-                messages = msgsArray,
+                messages = messages_list,
                 stream = false
+            });
+        }
+        else
+        {
+            return JsonUtility.ToJson(new
+            {
+                model = selectedModel,
+                messages = messages_list,
+                max_tokens = 4000,
+                temperature = 0.7
             });
         }
     }
 
     string GetApiUrl()
     {
-        if (modelType == "local")
-            return localUrl + "/chat/completions";
-
-        if (selectedModel.StartsWith("deepseek"))
-            return "https://api.deepseek.com/v1/chat/completions";
-        if (selectedModel.StartsWith("qwen") || selectedModel.Contains("qwen"))
-            return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-        if (selectedModel.Contains("ernie"))
-            return "https://qianfan.baidubce.com/v2/chat/completions";
-        if (selectedModel.Contains("moonshot") || selectedModel.Contains("kimi"))
-            return "https://api.moonshot.cn/v1/chat/completions";
-        if (selectedModel.Contains("glm"))
-            return "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-        if (selectedModel.Contains("spark"))
-            return "https://spark-api.xf-yun.com/v3.5/chat/completions";
-        if (selectedModel.Contains("groq/"))
-            return "https://api.groq.com/openai/v1/chat/completions";
-        if (selectedModel.Contains("gemini"))
-            return "https://generativelanguage.googleapis.com/v1beta/models/" + selectedModel + ":generateContent?key=" + apiKey;
-        if (selectedModel.Contains("claude"))
-            return "https://api.anthropic.com/v1/messages";
-        if (selectedModel.Contains("mistral") || selectedModel.Contains("cohere"))
-            return "https://api.mistral.ai/v1/chat/completions";
+        if (modelType == "local") return localUrl + "/chat/completions";
+        if (selectedModel.StartsWith("deepseek")) return "https://api.deepseek.com/v1/chat/completions";
+        if (selectedModel.Contains("qwen")) return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+        if (selectedModel.Contains("ernie")) return "https://qianfan.baidubce.com/v2/chat/completions";
+        if (selectedModel.Contains("moonshot") || selectedModel.Contains("kimi")) return "https://api.moonshot.cn/v1/chat/completions";
+        if (selectedModel.Contains("glm")) return "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+        if (selectedModel.Contains("spark")) return "https://spark-api.xf-yun.com/v3.5/chat/completions";
+        if (selectedModel.Contains("groq/")) return "https://api.groq.com/openai/v1/chat/completions";
+        if (selectedModel.Contains("gemini")) return "https://generativelanguage.googleapis.com/v1beta/models/" + selectedModel + ":generateContent?key=" + apiKey;
+        if (selectedModel.Contains("claude")) return "https://api.anthropic.com/v1/messages";
+        if (selectedModel.Contains("mistral") || selectedModel.Contains("cohere")) return "https://api.mistral.ai/v1/chat/completions";
         return "https://api.openai.com/v1/chat/completions";
     }
 
     string GetApiKey()
     {
-        if (modelType == "local") return "";
-        return apiKey;
+        return modelType == "local" ? "" : apiKey;
     }
 
     string ParseAIResponse(string json)
     {
         try
         {
-            if (modelType == "local" || selectedModel.Contains("qwen") || selectedModel.Contains("glm") ||
-                selectedModel.Contains("deepseek") || selectedModel.StartsWith("gpt") ||
-                selectedModel.Contains("groq/") || selectedModel.Contains("mistral") ||
-                selectedModel.Contains("cohere"))
-            {
-                var wrapper = JsonUtility.FromJson<OpenAIResponse>(json);
-                return wrapper?.choices?[0]?.message?.content ?? "Parse error";
-            }
             if (selectedModel.Contains("claude"))
             {
                 var data = JsonUtility.FromJson<ClaudeResponse>(json);
-                return data?.content?[0]?.text ?? "Parse error";
-            }
-            if (selectedModel.Contains("ernie"))
-            {
-                var data = JsonUtility.FromJson<ErnieResponse>(json);
-                return data?.result ?? "Parse error";
+                return data?.content?[0]?.text ?? "解析响应失败";
             }
             if (selectedModel.Contains("gemini"))
             {
                 var data = JsonUtility.FromJson<GeminiResponse>(json);
-                return data?.candidates?[0]?.content?.parts?[0]?.text ?? "Parse error";
+                return data?.candidates?[0]?.content?.parts?[0]?.text ?? "解析响应失败";
             }
-            if (selectedModel.Contains("spark"))
-            {
-                var data = JsonUtility.FromJson<SparkResponse>(json);
-                return data?.choices?[0]?.message?.content ?? "Parse error";
-            }
+            var wrapper = JsonUtility.FromJson<OpenAIResponse>(json);
+            return wrapper?.choices?[0]?.message?.content ?? "解析响应失败";
         }
-        catch { }
-        return json;
+        catch { return json; }
     }
 
-    // Response classes
-    private class OpenAIResponse
-    {
-        public List<OpenAIChoice> choices;
-    }
-    private class OpenAIChoice
-    {
-        public OpenAIMessage message;
-    }
-    private class OpenAIMessage
-    {
-        public string content;
-    }
+    private class OpenAIResponse { public List<OpenAIChoice> choices; }
+    private class OpenAIChoice { public OpenAIMessage message; }
+    private class OpenAIMessage { public string content; }
     [Serializable]
-    private class ClaudeResponse
-    {
-        public List<ClaudeContent> content;
-    }
-    private class ClaudeContent
-    {
-        public string text;
-    }
+    private class ClaudeResponse { public List<ClaudeContent> content; }
+    private class ClaudeContent { public string text; }
     [Serializable]
-    private class ErnieResponse
-    {
-        public string result;
-    }
-    [Serializable]
-    private class GeminiResponse
-    {
-        public List<GeminiCandidate> candidates;
-    }
-    private class GeminiCandidate
-    {
-        public GeminiContent content;
-    }
-    private class GeminiContent
-    {
-        public List<GeminiPart> parts;
-    }
-    private class GeminiPart
-    {
-        public string text;
-    }
-    [Serializable]
-    private class SparkResponse
-    {
-        public List<OpenAIChoice> choices;
-    }
+    private class GeminiResponse { public List<GeminiCandidate> candidates; }
+    private class GeminiCandidate { public GeminiContent content; }
+    private class GeminiContent { public List<GeminiPart> parts; }
+    private class GeminiPart { public string text; }
 
     // ============================================================
     // Code Preview & Apply
@@ -1082,10 +1017,8 @@ Platform: {Application.platform}
         var matches = Regex.Matches(aiResponse, @"```(?:csharp|cs)?\s*\n?([\s\S]*?)```");
         foreach (Match match in matches)
         {
-            string code = match.Groups[1].Value.Trim();
-            codeBlocks.Add(new CodeBlock(code, idx++));
+            codeBlocks.Add(new CodeBlock(match.Groups[1].Value.Trim(), idx++));
         }
-
         if (codeBlocks.Count == 0) return;
 
         pendingCodeBlocks.AddRange(codeBlocks);
@@ -1099,20 +1032,15 @@ Platform: {Application.platform}
         {
             var block = codeBlocks[i];
             string className = ExtractClassName(block.code);
-            string fileName = string.IsNullOrEmpty(className)
-                ? $"GeneratedScript_{i + 1}.cs"
-                : $"{className}.cs";
-
-            string filePath = $"{scriptsFolder}/{fileName}";
+            string fileName = string.IsNullOrEmpty(className) ? "GeneratedScript_" + (i + 1) + ".cs" : className + ".cs";
+            string filePath = scriptsFolder + "/" + fileName;
             bool fileExists = File.Exists(filePath);
             int lines = block.code.Split('\n').Length;
-
             pendingPreviewBlocks.Add(new PreviewBlock(block.code, i, filePath, fileName, lines, fileExists));
 
-            string lang = selectedLanguage;
-            string msg = lang == "zh"
-                ? $"代码块 [{i + 1}]: {fileName} ({lines}行)\n覆盖: {(fileExists ? "是" : "否")}\n输入 /apply {i + 1} 应用"
-                : $"Code block [{i + 1}]: {fileName} ({lines} lines)\nOverwrite: {(fileExists ? "Yes" : "No")}\nType /apply {i + 1} to apply";
+            string msg = selectedLanguage == "zh"
+                ? "代码块 [" + (i + 1) + "]: " + fileName + " (" + lines + "行)\n" + (fileExists ? "⚠️ 将覆盖" : "✓ 新文件") + "\n输入 /apply " + (i + 1) + " 应用"
+                : "Code block [" + (i + 1) + "]: " + fileName + " (" + lines + " lines)\n" + (fileExists ? "Overwrite" : "New file") + "\nUse /apply " + (i + 1);
             AddMessage(msg, false);
         }
     }
@@ -1130,34 +1058,26 @@ Platform: {Application.platform}
     {
         if (pendingCodeBlocks.Count == 0)
         {
-            AddMessage(selectedLanguage == "zh" ? "没有待应用的代码块!" : "No code blocks to apply!", false);
+            AddMessage(selectedLanguage == "zh" ? "没有待应用的代码！" : "No code to apply!", false);
             return;
         }
-
         if (index < 0 || index >= pendingCodeBlocks.Count)
         {
-            string msg = selectedLanguage == "zh"
-                ? $"无效序号，请使用 /apply 1 - {pendingCodeBlocks.Count}"
-                : $"Invalid index, use /apply 1 - {pendingCodeBlocks.Count}";
-            AddMessage(msg, false);
+            AddMessage(selectedLanguage == "zh"
+                ? "无效序号，请用 /apply 1 - " + pendingCodeBlocks.Count
+                : "Invalid index, use /apply 1 - " + pendingCodeBlocks.Count, false);
             return;
         }
 
         var block = pendingCodeBlocks[index];
         string className = ExtractClassName(block.code);
-        string fileName = string.IsNullOrEmpty(className)
-            ? $"GeneratedScript_{index + 1}.cs"
-            : $"{className}.cs";
-
+        string fileName = string.IsNullOrEmpty(className) ? "GeneratedScript_" + (index + 1) + ".cs" : className + ".cs";
         string scriptsFolder = Application.dataPath + "/Scripts/AIAssistant";
-        if (!Directory.Exists(scriptsFolder))
-            Directory.CreateDirectory(scriptsFolder);
-
-        string filePath = $"{scriptsFolder}/{fileName}";
+        if (!Directory.Exists(scriptsFolder)) Directory.CreateDirectory(scriptsFolder);
+        string filePath = scriptsFolder + "/" + fileName;
         bool fileExists = File.Exists(filePath);
         string originalCode = fileExists ? File.ReadAllText(filePath) : "";
 
-        // Save to history
         var entry = new HistoryEntry(fileExists ? "modify" : "create", filePath, fileName, originalCode, block.code);
         undoStack.Add(entry);
         redoStack.Clear();
@@ -1165,10 +1085,9 @@ Platform: {Application.platform}
         File.WriteAllText(filePath, block.code);
         AssetDatabase.Refresh();
 
-        string lang = selectedLanguage;
-        AddMessage(lang == "zh"
-            ? $"已保存: {fileName}，还剩 {pendingCodeBlocks.Count - 1} 个待应用"
-            : $"Saved: {fileName}, {pendingCodeBlocks.Count - 1} remaining", false);
+        AddMessage(selectedLanguage == "zh"
+            ? "已保存: " + fileName + "，还剩 " + (pendingCodeBlocks.Count - 1) + " 个"
+            : "Saved: " + fileName + ", " + (pendingCodeBlocks.Count - 1) + " remaining", false);
 
         pendingCodeBlocks.RemoveAt(index);
         pendingPreviewBlocks.RemoveAt(index);
@@ -1179,9 +1098,7 @@ Platform: {Application.platform}
         int count = pendingCodeBlocks.Count;
         pendingCodeBlocks.Clear();
         pendingPreviewBlocks.Clear();
-
-        string lang = selectedLanguage;
-        AddMessage(lang == "zh" ? $"已跳过 {count} 个代码块" : $"Skipped {count} code blocks", false);
+        AddMessage(selectedLanguage == "zh" ? "已跳过 " + count + " 个代码块" : "Skipped " + count + " blocks", false);
     }
 
     // ============================================================
@@ -1189,63 +1106,41 @@ Platform: {Application.platform}
     // ============================================================
     void PerformUndo()
     {
-        if (undoStack.Count == 0)
-        {
-            AddMessage(selectedLanguage == "zh" ? "没有可撤销的操作" : "Nothing to undo", false);
-            return;
-        }
-
+        if (undoStack.Count == 0) { AddMessage(selectedLanguage == "zh" ? "没有可撤销的操作" : "Nothing to undo", false); return; }
         var history = undoStack[undoStack.Count - 1];
         undoStack.RemoveAt(undoStack.Count - 1);
-
         try
         {
             if (history.action == "create")
             {
-                if (File.Exists(history.filePath))
-                {
-                    File.Delete(history.filePath);
-                    AssetDatabase.Refresh();
-                }
+                if (File.Exists(history.filePath)) { File.Delete(history.filePath); AssetDatabase.Refresh(); }
                 redoStack.Add(history);
-                AddMessage(selectedLanguage == "zh" ? $"已删除: {history.fileName}" : $"Deleted: {history.fileName}", false);
+                AddMessage(selectedLanguage == "zh" ? "已删除: " + history.fileName : "Deleted: " + history.fileName, false);
             }
             else
             {
                 File.WriteAllText(history.filePath, history.originalCode);
                 AssetDatabase.Refresh();
                 redoStack.Add(history);
-                AddMessage(selectedLanguage == "zh" ? $"已撤销: {history.fileName}" : $"Undone: {history.fileName}", false);
+                AddMessage(selectedLanguage == "zh" ? "已撤销: " + history.fileName : "Undone: " + history.fileName, false);
             }
         }
-        catch (Exception e)
-        {
-            AddMessage($"Undo failed: {e.Message}", false);
-        }
+        catch (Exception ex) { AddMessage("撤销失败: " + ex.Message, false); }
     }
 
     void PerformRedo()
     {
-        if (redoStack.Count == 0)
-        {
-            AddMessage(selectedLanguage == "zh" ? "没有可重做的操作" : "Nothing to redo", false);
-            return;
-        }
-
+        if (redoStack.Count == 0) { AddMessage(selectedLanguage == "zh" ? "没有可重做的操作" : "Nothing to redo", false); return; }
         var history = redoStack[redoStack.Count - 1];
         redoStack.RemoveAt(redoStack.Count - 1);
-
         try
         {
             File.WriteAllText(history.filePath, history.newCode);
             AssetDatabase.Refresh();
             undoStack.Add(history);
-            AddMessage(selectedLanguage == "zh" ? $"已重做: {history.fileName}" : $"Redone: {history.fileName}", false);
+            AddMessage(selectedLanguage == "zh" ? "已重做: " + history.fileName : "Redone: " + history.fileName, false);
         }
-        catch (Exception e)
-        {
-            AddMessage($"Redo failed: {e.Message}", false);
-        }
+        catch (Exception ex) { AddMessage("重做失败: " + ex.Message, false); }
     }
 
     // ============================================================
@@ -1254,8 +1149,7 @@ Platform: {Application.platform}
     void OpenKnowledgeBase()
     {
         string path = Application.dataPath + "/Scripts/KnowledgeBase";
-        if (!Directory.Exists(path))
-            Directory.CreateDirectory(path);
+        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         EditorUtility.RevealInFinder(path);
     }
 
@@ -1264,24 +1158,17 @@ Platform: {Application.platform}
         System.Random rand = new System.Random();
         int topicIdx = rand.Next(learningTips.Length);
         string tip = selectedLanguage == "zh" ? learningTips[topicIdx] : learningTips_en[topicIdx];
-
-        string msg = selectedLanguage == "zh" ? "每日学习 Tip:" : "Daily Learning Tip:";
-        AddMessage(msg, false);
+        AddMessage(selectedLanguage == "zh" ? "每日学习：" : "Daily Tip:", false);
         AddMessage(tip, false);
-
         await Task.Delay(100);
     }
 
     void TakeScreenshot()
     {
         string path = Application.dataPath + "/../Screenshots";
-        if (!Directory.Exists(path))
-            Directory.CreateDirectory(path);
-        string filename = $"/screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-        ScreenCapture.CaptureScreenshot(path + filename);
-        AddMessage(selectedLanguage == "zh"
-            ? $"截图已保存到 Screenshots 文件夹"
-            : $"Screenshot saved to Screenshots folder", false);
+        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        ScreenCapture.CaptureScreenshot(path + "/screenshot_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png");
+        AddMessage(selectedLanguage == "zh" ? "截图已保存" : "Screenshot saved", false);
     }
 
     async Task TestCloudConnection()
@@ -1295,29 +1182,19 @@ Platform: {Application.platform}
             using (var client = new HttpClient())
             {
                 client.Timeout = TimeSpan.FromSeconds(15);
-                var testMsg = JsonUtility.ToJson(new { model = selectedModel, messages = new object[] { new { role = "user", content = "hi" } }, max_tokens = 5 });
-                var content = new StringContent(testMsg, Encoding.UTF8, "application/json");
+                var testJson = JsonUtility.ToJson(new { model = selectedModel, messages = new object[] { new { role = "user", content = "hi" } }, max_tokens = 5 });
+                var content = new StringContent(testJson, Encoding.UTF8, "application/json");
                 client.DefaultRequestHeaders.Clear();
                 if (!string.IsNullOrEmpty(apiKey))
-                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + apiKey);
                 var response = await client.PostAsync(GetApiUrl(), content);
-                if (response.IsSuccessStatusCode)
-                    AddMessage(selectedLanguage == "zh" ? "连接成功!" : "Connection successful!", false);
-                else
-                    AddMessage($"Connection failed: {response.StatusCode}", false);
+                AddMessage(response.IsSuccessStatusCode
+                    ? (selectedLanguage == "zh" ? "连接成功！" : "Connection successful!")
+                    : "连接失败: " + (int)response.StatusCode, false);
             }
         }
-        catch (Exception ex)
-        {
-            AddMessage($"Connection error: {ex.Message}", false);
-        }
-        finally
-        {
-            isProcessing = false;
-            statusText = "Ready";
-            Repaint();
-        }
+        catch (Exception ex) { AddMessage("连接错误: " + ex.Message, false); }
+        finally { isProcessing = false; statusText = "就绪"; Repaint(); }
     }
 
     async Task TestOllamaConnection()
@@ -1332,57 +1209,42 @@ Platform: {Application.platform}
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
                 var response = await client.GetAsync(localUrl.Replace("/v1", "") + "/api/tags");
-
                 if (response.IsSuccessStatusCode)
                 {
                     string body = await response.Content.ReadAsStringAsync();
-                    try
-                    {
-                        var tags = JsonUtility.FromJson<OllamaTagsResponse>(body);
-                        string modelList = "";
-                        if (tags?.models != null)
-                        {
-                            foreach (var m in tags.models)
-                                modelList += $"- {m.name}\n";
-                        }
-                        AddMessage(selectedLanguage == "zh"
-                            ? $"Ollama 连接成功!\n已安装模型:\n{modelList}"
-                            : $"Ollama connected!\nInstalled models:\n{modelList}", false);
-                    }
-                    catch
-                    {
-                        AddMessage(selectedLanguage == "zh"
-                            ? "Ollama 连接成功，但无法解析模型列表"
-                            : "Ollama connected, but failed to parse model list", false);
-                    }
+                    var tags = JsonUtility.FromJson<OllamaTagsResponse>(body);
+                    string modelList = "";
+                    if (tags?.models != null)
+                        foreach (var m in tags.models) modelList += "- " + m.name + "\n";
+                    AddMessage(selectedLanguage == "zh"
+                        ? "Ollama 连接成功！\n已安装模型：\n" + modelList
+                        : "Ollama connected!\nInstalled models:\n" + modelList, false);
                 }
                 else
                 {
                     AddMessage(selectedLanguage == "zh"
-                        ? $"无法连接 Ollama (HTTP {(int)response.StatusCode})\n请确保 Ollama 已启动"
-                        : $"Cannot connect to Ollama (HTTP {(int)response.StatusCode})\nMake sure Ollama is running", false);
+                        ? "无法连接 Ollama (HTTP " + (int)response.StatusCode + ")\n请确认 Ollama 已启动"
+                        : "Cannot connect to Ollama (HTTP " + (int)response.StatusCode + ")\nMake sure Ollama is running", false);
                 }
             }
         }
         catch (Exception ex)
         {
             AddMessage(selectedLanguage == "zh"
-                ? $"Ollama 连接失败: {ex.Message}\n请确认 Ollama 已安装并运行"
-                : $"Ollama connection failed: {ex.Message}\nMake sure Ollama is installed and running", false);
+                ? "Ollama 连接失败: " + ex.Message + "\n请确认 Ollama 已安装并运行"
+                : "Ollama failed: " + ex.Message + "\nMake sure Ollama is installed and running", false);
         }
-        finally
-        {
-            isProcessing = false;
-            statusText = "Ready";
-            Repaint();
-        }
+        finally { isProcessing = false; statusText = "就绪"; Repaint(); }
     }
+
+    private class OllamaTagsResponse { public List<OllamaModel> models; }
+    private class OllamaModel { public string name; }
 
     string GetModelKeyUrl(string modelId)
     {
         if (modelId.Contains("deepseek")) return "https://platform.deepseek.com/api_keys";
-        if (modelId.StartsWith("qwen") || modelId.Contains("qwen")) return "https://dashscope.console.aliyun.com/apiKey";
-        if (modelId.Contains("ernie")) return "https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application";
+        if (modelId.Contains("qwen")) return "https://dashscope.console.aliyun.com/apiKey";
+        if (modelId.Contains("ernie")) return "https://console.bce.baidu.com/qianfan/ais/console";
         if (modelId.Contains("moonshot") || modelId.Contains("kimi")) return "https://platform.moonshot.cn/console/api-keys";
         if (modelId.Contains("glm")) return "https://open.bigmodel.cn/usercenter/apikeys";
         if (modelId.Contains("spark")) return "https://xinghuo.xfyun.cn/sparkapi";
@@ -1394,17 +1256,17 @@ Platform: {Application.platform}
 }
 
 // ============================================================
-// GameAISkill - Skill System (Unity C# version)
+// GameAISkill - Skill System
 // ============================================================
 public static class GameAISkill
 {
     public static void Use(string skillName)
     {
-        EditorUtility.DisplayDialog("Skill", $"Skill '{skillName}' called", "OK");
+        EditorUtility.DisplayDialog("Skill", "Skill: " + skillName, "OK");
     }
 
     public static void RegisterSkill(string name, Action callback)
     {
-        // Skill registration placeholder
+        // Placeholder
     }
 }

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using System.Collections;
 using System.Collections.Generic;
@@ -763,12 +763,12 @@ public class GameAIAssistant : EditorWindow
         string context = lang == "zh" ? $@"[项目上下文]
 项目名称: {currentProjectName}
 Unity版本: {currentUnityVersion}
-API: Unity {Application.apiCompatibilityLevel}
+API: Unity {PlayerSettings.apiCompatibilityLevel.ToString()}
 平台: {Application.platform}
 " : $@"[Project Context]
 Project: {currentProjectName}
 Unity: {currentUnityVersion}
-API: Unity {Application.apiCompatibilityLevel}
+API: Unity {PlayerSettings.apiCompatibilityLevel.ToString()}
 Platform: {Application.platform}
 ";
         AddMessage(context, false);
@@ -1335,7 +1335,7 @@ Platform: {Application.platform}
 
                 if (response.IsSuccessStatusCode)
                 {
-                    string body = await response.Content.ReadAsStringStringAsync();
+                    string body = await response.Content.ReadAsStringAsync();
                     try
                     {
                         var tags = JsonUtility.FromJson<OllamaTagsResponse>(body);

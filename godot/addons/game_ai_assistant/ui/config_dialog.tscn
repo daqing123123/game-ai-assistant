@@ -1,0 +1,116 @@
+[gd_scene load_steps=2 format=3 uid="uid://config_dialog_001"]
+
+[ext_resource type="Script" path="res://addons/game_ai_assistant/ui/config_dialog.gd" id="1"]
+
+[node name="ConfigDialog" type="WindowDialog"]
+title = "⚙️ AI配置"
+initial_position = 2
+size = Vector2i(450, 380)
+unresizable = false
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "配置AI模型"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="ModelTypeLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "模型类型"
+
+[node name="ModelTypeOption" type="OptionButton" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="CloudSection" type="VBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="ApiKeyLabel" type="Label" parent="Margin/VBox/CloudSection"]
+layout_mode = 2
+text = "API Key"
+
+[node name="ApiKeyInput" type="LineEdit" parent="Margin/VBox/CloudSection"]
+layout_mode = 2
+placeholder_text = "输入你的API Key"
+secret = true
+
+[node name="ApiKeyHint" type="Label" parent="Margin/VBox/CloudSection"]
+layout_mode = 2
+text = "API Key将安全保存在本地"
+horizontal_alignment = 1
+
+[node name="GetKeyBtn" type="Button" parent="Margin/VBox/CloudSection"]
+layout_mode = 2
+text = "🔗 获取DeepSeek API Key"
+
+[node name="LocalSection" type="VBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+visible = false
+
+[node name="LocalUrlLabel" type="Label" parent="Margin/VBox/LocalSection"]
+layout_mode = 2
+text = "Ollama 地址"
+
+[node name="LocalUrlInput" type="LineEdit" parent="Margin/VBox/LocalSection"]
+layout_mode = 2
+text = "http://localhost:11434"
+
+[node name="LocalModelLabel" type="Label" parent="Margin/VBox/LocalSection"]
+layout_mode = 2
+text = "本地模型"
+
+[node name="LocalModelOption" type="OptionButton" parent="Margin/VBox/LocalSection"]
+layout_mode = 2
+
+[node name="OllamaHint" type="Label" parent="Margin/VBox/LocalSection"]
+layout_mode = 2
+text = "请先安装 Ollama: ollama.com"
+horizontal_alignment = 1
+
+[node name="SystemInfo" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="SystemInfoLabel" type="Label" parent="Margin/VBox/SystemInfo"]
+layout_mode = 2
+text = "💡 根据你的电脑配置自动推荐"
+horizontal_alignment = 1
+
+[node name="RecommendLabel" type="Label" parent="Margin/VBox/SystemInfo"]
+layout_mode = 2
+text = "推荐: DeepSeek V3 (免费额度)"
+
+[node name="HSeparator2" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+alignment = 2
+
+[node name="TestBtn" type="Button" parent="Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "🧪 测试"
+
+[node name="SaveBtn" type="Button" parent="Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "💾 保存"
+
+[node name="CancelBtn" type="Button" parent="Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "取消"

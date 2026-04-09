@@ -1,0 +1,34 @@
+# Godot
+.godot/
+*.import
+*.tmp
+
+# Unity
+Library/
+Temp/
+obj/
+*.csproj
+*.unityproj
+*.sln
+*.userprefs
+*.pidb
+*.booproj
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API Keys (重要：不要上传密钥)
+*.env
+api_keys.json
+secrets.json
+
+# Logs
+*.log
+logs/

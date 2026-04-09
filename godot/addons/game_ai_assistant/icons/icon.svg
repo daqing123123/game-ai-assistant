@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Octopus body -->
+  <ellipse cx="64" cy="50" rx="40" ry="35" fill="#7B68EE"/>
+  <ellipse cx="64" cy="50" rx="35" ry="30" fill="#9370DB"/>
+  
+  <!-- Eyes -->
+  <ellipse cx="50" cy="45" rx="12" ry="14" fill="white"/>
+  <ellipse cx="78" cy="45" rx="12" ry="14" fill="white"/>
+  <ellipse cx="52" cy="46" rx="6" ry="8" fill="#1a1a2e"/>
+  <ellipse cx="80" cy="46" rx="6" ry="8" fill="#1a1a2e"/>
+  <ellipse cx="53" cy="44" rx="2" ry="3" fill="white"/>
+  <ellipse cx="81" cy="44" rx="2" ry="3" fill="white"/>
+  
+  <!-- Tentacles -->
+  <path d="M30 70 Q20 90 25 110" stroke="#7B68EE" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <path d="M45 75 Q35 95 40 115" stroke="#7B68EE" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M60 80 Q55 100 60 120" stroke="#7B68EE" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M75 80 Q80 100 75 120" stroke="#7B68EE" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M90 75 Q95 95 90 115" stroke="#7B68EE" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M98 70 Q110 90 105 110" stroke="#7B68EE" stroke-width="12" fill="none" stroke-linecap="round"/>
+  
+  <!-- AI sparkle effects -->
+  <circle cx="20" cy="30" r="4" fill="#FFD700"/>
+  <circle cx="108" cy="25" r="3" fill="#FFD700"/>
+  <circle cx="100" cy="15" r="2" fill="#FFD700"/>
+</svg>

@@ -309,6 +309,20 @@ public class GameAIAssistant : EditorWindow
     // ============================================================
     void OnGUI()
     {
+        // Handle Enter key for sending messages
+        Event e = Event.current;
+        if (e.type == EventType.KeyDown && GUI.GetNameOfFocusedControl() == "ChatInputField")
+        {
+            if ((e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) && !isProcessing)
+            {
+                if (!string.IsNullOrWhiteSpace(inputText))
+                {
+                    SendMessage();
+                    e.Use();
+                }
+            }
+        }
+
         float availableHeight = position.height;
         float usedHeight = TOOLBAR_HEIGHT + STATUS_HEIGHT;
 
@@ -697,47 +711,6 @@ public class GameAIAssistant : EditorWindow
     // ============================================================
     // Keyboard Events - Handle Enter Key
     // ============================================================
-    void OnInspectorUpdate()
-    {
-        // Force repaint for smooth UI
-        Repaint();
-    }
-
-    public override void OnGUI(Rect rect)
-    {
-        // Handle Enter key
-        Event e = Event.current;
-        if (e.type == EventType.KeyDown && GUI.GetNameOfFocusedControl() == "ChatInputField")
-        {
-            if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
-            {
-                if (!string.IsNullOrWhiteSpace(inputText) && !isProcessing)
-                {
-                    SendMessage();
-                    e.Use();
-                }
-            }
-        }
-
-        // Fallback: catch Enter anywhere when input has text
-        if (e.type == EventType.KeyDown)
-        {
-            if ((e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
-                && GUI.GetNameOfFocusedControl() == "ChatInputField"
-                && !isProcessing)
-            {
-                if (!string.IsNullOrWhiteSpace(inputText))
-                {
-                    SendMessage();
-                    e.Use();
-                }
-            }
-        }
-
-        // Call base OnGUI
-        base.OnGUI(rect);
-    }
-
     // ============================================================
     // Message Handling
     // ============================================================

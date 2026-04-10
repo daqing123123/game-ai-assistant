@@ -131,7 +131,7 @@ var translations: Dictionary = {
 }
 
 # 获取翻译文本
-func tr(key: String) -> String:
+func _tr(key: String) -> String:
 	var lang = config.get("language", "auto")
 	if lang == "auto":
 		lang = "zh" if OS.get_locale_language() == "zh" else "en"
@@ -321,7 +321,6 @@ func get_system_info() -> Dictionary:
 	return {
 		"os": OS.get_name(),
 		"locale": OS.get_locale_language(),
-		"driver_name": OS.get_video_driver_name(),
 		"current_memory": OS.get_static_memory_usage() / 1024 / 1024,  # MB
 		"available_memory": OS.get_memory_info().available / 1024 / 1024  # MB
 	}

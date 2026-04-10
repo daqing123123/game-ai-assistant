@@ -1,15 +1,13 @@
-extends Node
+﻿extends Node
 
-# 素材搜索器
-# 搜索免费可商用的游戏素材
+# 绱犳潗鎼滅储鍣?# 鎼滅储鍏嶈垂鍙晢鐢ㄧ殑娓告垙绱犳潗
 
 signal search_started(query: String)
 signal search_progress(current: int, total: int)
 signal search_completed(results: Array)
 signal error_occurred(error: String)
 
-# 素材源配置
-const ASSET_SOURCES = {
+# 绱犳潗婧愰厤缃?const ASSET_SOURCES = {
 	"kenney": {
 		"name": "Kenney.nl",
 		"url": "https://kenney.nl/assets",
@@ -68,7 +66,7 @@ const ASSET_SOURCES = {
 	}
 }
 
-# 搜索缓存
+# 鎼滅储缂撳瓨
 var search_cache: Dictionary = {}
 var http_request: HTTPRequest
 
@@ -76,20 +74,19 @@ func _init():
 	http_request = HTTPRequest.new()
 	add_child(http_request)
 
-# 搜索素材
+# 鎼滅储绱犳潗
 func search(query: String, asset_type: String = "") -> void:
 	search_started.emit(query)
 	
-	# 检查缓存
-	var cache_key = query + "_" + asset_type
+	# 妫€鏌ョ紦瀛?	var cache_key = query + "_" + asset_type
 	if search_cache.has(cache_key):
 		search_completed.emit(search_cache[cache_key])
 		return
 	
-	# 执行搜索
+	# 鎵ц鎼滅储
 	var results = await _perform_search(query, asset_type)
 	
-	# 缓存结果
+	# 缂撳瓨缁撴灉
 	search_cache[cache_key] = results
 	
 	search_completed.emit(results)
@@ -98,39 +95,35 @@ func _perform_search(query: String, asset_type: String) -> Array:
 	var results: Array = []
 	var lower_query = query.to_lower()
 	
-	# 根据查询词分类
-	var category = _categorize_query(lower_query)
+	# 鏍规嵁鏌ヨ璇嶅垎绫?	var category = _categorize_query(lower_query)
 	
-	# 搜索各个素材源
-	var tasks = []
+	# 鎼滅储鍚勪釜绱犳潗婧?	var tasks = []
 	
 	match category:
-		"audio", "sound", "sfx", "音效", "声音":
+		"audio", "sound", "sfx", "闊虫晥", "澹伴煶":
 			tasks = _search_audio_sources(query)
-		"sprite", "image", "图片", "精灵", "像素":
+		"sprite", "image", "鍥剧墖", "绮剧伒", "鍍忕礌":
 			tasks = _search_sprite_sources(query)
-		"model", "3d", "模型", "角色":
+		"model", "3d", "妯″瀷", "瑙掕壊":
 			tasks = _search_model_sources(query)
-		"animation", "anim", "动画":
+		"animation", "anim", "鍔ㄧ敾":
 			tasks = _search_animation_sources(query)
-		"icon", "图标":
+		"icon", "鍥炬爣":
 			tasks = _search_icon_sources(query)
 		_:
-			# 全类别搜索
-			tasks = _get_all_sources(query)
+			# 鍏ㄧ被鍒悳绱?			tasks = _get_all_sources(query)
 	
-	# 模拟搜索结果（实际应该调用API）
-	results = _generate_mock_results(query, category)
+	# 妯℃嫙鎼滅储缁撴灉锛堝疄闄呭簲璇ヨ皟鐢ˋPI锛?	results = _generate_mock_results(query, category)
 	
 	return results
 
 func _categorize_query(query: String) -> String:
 	var categories = {
-		"audio": ["音效", "声音", "爆炸", "射击", "跳跃", "背景音乐", "音乐", "sfx", "sound", "audio", "effect"],
-		"sprite": ["精灵", "像素", "图片", "图像", "sprite", "image", "pixel"],
-		"model": ["模型", "3d", "角色", "道具", "场景", "model", "character", "obj"],
-		"animation": ["动画", "anim", "animation", "mixamo"],
-		"icon": ["图标", "icon", "ui"]
+		"audio": ["闊虫晥", "澹伴煶", "鐖嗙偢", "灏勫嚮", "璺宠穬", "鑳屾櫙闊充箰", "闊充箰", "sfx", "sound", "audio", "effect"],
+		"sprite": ["绮剧伒", "鍍忕礌", "鍥剧墖", "鍥惧儚", "sprite", "image", "pixel"],
+		"model": ["妯″瀷", "3d", "瑙掕壊", "閬撳叿", "鍦烘櫙", "model", "character", "obj"],
+		"animation": ["鍔ㄧ敾", "anim", "animation", "mixamo"],
+		"icon": ["鍥炬爣", "icon", "ui"]
 	}
 	
 	for cat in categories:
@@ -161,12 +154,12 @@ func _get_all_sources(query: String) -> Array:
 func _generate_mock_results(query: String, category: String) -> Array:
 	var results: Array = []
 	
-	# Kenney 素材
+	# Kenney 绱犳潗
 	var kenney_result = {
 		"source": "Kenney.nl",
 		"source_id": "kenney",
 		"title": _get_kenney_asset_title(query, category),
-		"description": "高质量免费游戏素材，CC0协议可商用",
+		"description": "楂樿川閲忓厤璐规父鎴忕礌鏉愶紝CC0鍗忚鍙晢鐢?,
 		"url": "https://kenney.nl/assets",
 		"license": "CC0 1.0",
 		"free": true,
@@ -181,8 +174,8 @@ func _generate_mock_results(query: String, category: String) -> Array:
 			"source": "Freesound",
 			"source_id": "freesound",
 			"title": _get_freesound_asset_title(query),
-			"description": "全球最大免费音效库，Creative Commons许可",
-			"url": "https://freesound.org/search/?q=" + query.http_escape(),
+			"description": "鍏ㄧ悆鏈€澶у厤璐归煶鏁堝簱锛孋reative Commons璁稿彲",
+			"url": "https://freesound.org/search/?q=" + query.uri_encode(),
 			"license": "CC0 / CC-BY",
 			"free": true,
 			"types": ["audio"],
@@ -195,8 +188,8 @@ func _generate_mock_results(query: String, category: String) -> Array:
 		var mixamo_result = {
 			"source": "Mixamo",
 			"source_id": "mixamo",
-			"title": "Mixamo 角色动画库",
-			"description": "免费角色和动画，自动绑定骨骼",
+			"title": "Mixamo 瑙掕壊鍔ㄧ敾搴?,
+			"description": "鍏嶈垂瑙掕壊鍜屽姩鐢伙紝鑷姩缁戝畾楠ㄩ",
 			"url": "https://www.mixamo.com",
 			"license": "Free with account",
 			"free": true,
@@ -210,8 +203,8 @@ func _generate_mock_results(query: String, category: String) -> Array:
 		var gameicons_result = {
 			"source": "Game Icons",
 			"source_id": "gameicons",
-			"title": "Game Icons 3000+ 图标",
-			"description": "超过3000个免费游戏图标，SVG/PNG格式",
+			"title": "Game Icons 3000+ 鍥炬爣",
+			"description": "瓒呰繃3000涓厤璐规父鎴忓浘鏍囷紝SVG/PNG鏍煎紡",
 			"url": "https://game-icons.net",
 			"license": "CC BY 3.0",
 			"free": true,
@@ -225,8 +218,8 @@ func _generate_mock_results(query: String, category: String) -> Array:
 		var polyhaven_result = {
 			"source": "Poly Haven",
 			"source_id": "polyhaven",
-			"title": "Poly Haven 3D模型库",
-			"description": "免费高质量3D模型和纹理，CC0协议",
+			"title": "Poly Haven 3D妯″瀷搴?,
+			"description": "鍏嶈垂楂樿川閲?D妯″瀷鍜岀汗鐞嗭紝CC0鍗忚",
 			"url": "https://polyhaven.com/models",
 			"license": "CC0 1.0",
 			"free": true,
@@ -239,8 +232,8 @@ func _generate_mock_results(query: String, category: String) -> Array:
 	var itchio_result = {
 		"source": "Itch.io",
 		"source_id": "itchio",
-		"title": "Itch.io 免费素材",
-		"description": "独立游戏社区的免费素材包",
+		"title": "Itch.io 鍏嶈垂绱犳潗",
+		"description": "鐙珛娓告垙绀惧尯鐨勫厤璐圭礌鏉愬寘",
 		"url": "https://itch.io/game-assets/free",
 		"license": "Various",
 		"free": true,
@@ -253,16 +246,16 @@ func _generate_mock_results(query: String, category: String) -> Array:
 
 func _get_kenney_asset_title(query: String, category: String) -> String:
 	var titles = {
-		"audio": "Kenney 音效素材包",
-		"sprite": "Kenney 2D 精灵图",
-		"model": "Kenney 3D 模型包",
-		"animation": "Kenney 角色素材",
-		"icon": "Kenney UI 套件"
+		"audio": "Kenney 闊虫晥绱犳潗鍖?,
+		"sprite": "Kenney 2D 绮剧伒鍥?,
+		"model": "Kenney 3D 妯″瀷鍖?,
+		"animation": "Kenney 瑙掕壊绱犳潗",
+		"icon": "Kenney UI 濂椾欢"
 	}
-	return titles.get(category, "Kenney 游戏素材包")
+	return titles.get(category, "Kenney 娓告垙绱犳潗鍖?)
 
 func _get_freesound_asset_title(query: String) -> String:
-	return "Freesound 音效: " + query
+	return "Freesound 闊虫晥: " + query
 
 func _get_asset_types(category: String) -> Array:
 	var types = {
@@ -274,37 +267,37 @@ func _get_asset_types(category: String) -> Array:
 	}
 	return types.get(category, ["general"])
 
-# 获取推荐素材
+# 鑾峰彇鎺ㄨ崘绱犳潗
 func get_recommended_assets(category: String = "") -> Array:
 	var recommended: Array = []
 	
-	# Kenney 必推
+	# Kenney 蹇呮帹
 	recommended.append({
 		"source": "Kenney.nl",
 		"title": "Kenney 1-bit Pack",
-		"description": "精美像素风格素材，经典2D游戏风格",
+		"description": "绮剧編鍍忕礌椋庢牸绱犳潗锛岀粡鍏?D娓告垙椋庢牸",
 		"url": "https://kenney.nl/assets/bitmaps",
 		"types": ["sprites"],
 		"rating": 5
 	})
 	
-	# Freesound 音效
+	# Freesound 闊虫晥
 	if category.is_empty() or category == "audio":
 		recommended.append({
 			"source": "Freesound",
 			"title": "Game Sounds Pack",
-			"description": "常用游戏音效集合",
+			"description": "甯哥敤娓告垙闊虫晥闆嗗悎",
 			"url": "https://freesound.org/search/?q=game+sounds",
 			"types": ["audio"],
 			"rating": 5
 		})
 	
-	# Mixamo 动画
+	# Mixamo 鍔ㄧ敾
 	if category.is_empty() or category == "animation":
 		recommended.append({
 			"source": "Mixamo",
-			"title": "Mixamo 动画库",
-			"description": "免费角色动画，自动rig",
+			"title": "Mixamo 鍔ㄧ敾搴?,
+			"description": "鍏嶈垂瑙掕壊鍔ㄧ敾锛岃嚜鍔╮ig",
 			"url": "https://www.mixamo.com",
 			"types": ["animation", "characters"],
 			"rating": 5
@@ -315,7 +308,7 @@ func get_recommended_assets(category: String = "") -> Array:
 		recommended.append({
 			"source": "Game Icons",
 			"title": "Game Icons 3000+",
-			"description": "海量游戏图标",
+			"description": "娴烽噺娓告垙鍥炬爣",
 			"url": "https://game-icons.net",
 			"types": ["icons"],
 			"rating": 5
@@ -323,15 +316,16 @@ func get_recommended_assets(category: String = "") -> Array:
 	
 	return recommended
 
-# 获取所有素材源
+# 鑾峰彇鎵€鏈夌礌鏉愭簮
 func get_all_sources() -> Dictionary:
 	return ASSET_SOURCES
 
-# 打开素材网站
+# 鎵撳紑绱犳潗缃戠珯
 func open_source(source_id: String) -> void:
 	if ASSET_SOURCES.has(source_id):
 		OS.shell_open(ASSET_SOURCES[source_id].url)
 
-# 清除缓存
+# 娓呴櫎缂撳瓨
 func clear_cache() -> void:
 	search_cache.clear()
+

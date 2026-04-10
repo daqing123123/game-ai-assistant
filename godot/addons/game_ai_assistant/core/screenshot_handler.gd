@@ -86,8 +86,9 @@ func get_thumbnail(max_size: int = 256) -> Image:
 	if scale >= 1.0:
 		return image
 	
-	# 创建缩略图
-	var thumb = image.resize(int(image.get_width() * scale), int(image.get_height() * scale), Image.INTERPOLATE_BILINEAR)
+	# 创建缩略图 (Godot 4: resize 返回 void，需要先复制再 resize)
+	var thumb = image.duplicate()
+	thumb.resize(int(image.get_width() * scale), int(image.get_height() * scale))
 	return thumb
 
 # 生成场景描述（简化版本）

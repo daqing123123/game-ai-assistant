@@ -112,7 +112,7 @@ func generate_file_name(code: String, language: String) -> String:
 	# 尝试从代码中提取类名
 	var extracted_class = extract_class_name(code, language)
 	if not extracted_class.is_empty():
-		return class_name + "." + ext
+		return extracted_class + "." + ext
 	
 	# 默认文件名
 	return "generated_script." + ext

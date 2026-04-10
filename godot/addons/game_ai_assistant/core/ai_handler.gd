@@ -1,7 +1,8 @@
 ﻿extends Node
 
-# AI澶勭悊鍣?- 鏍稿績AI閫昏緫
-# 澶勭悊鐢ㄦ埛杈撳叆锛岃皟鐢ˋI锛岃繑鍥炵粨鏋?
+# AI处理器 - 核心AI逻辑
+# 处理用户输入，调用AI，返回结果
+
 signal thinking_started()
 signal thinking_finished(response: String)
 signal errorOccurred(error: String)
@@ -14,45 +15,54 @@ var http_request: HTTPRequest
 var is_processing: bool = false
 var conversation_history: Array = []
 
-# 璋冭瘯鍔╂墜鐩稿叧
+# 调试助手相关
 var last_error_context: Dictionary = {}
 var debug_suggestions: Array = []
 
-# 浠ｇ爜鎼滅储鐩稿叧
+# 代码搜索相关
 var last_search_results: Array = []
 var last_search_query: String = ""
 var _analysis_mode: String = ""  # "explain" | "optimize" | ""
 var _pending_user_message: String = ""
 
-# 绯荤粺鎻愮ず璇嶏紙鍙岃锛?const SYSTEM_PROMPT_ZH = """浣犳槸涓€涓笓涓氱殑娓告垙寮€鍙慉I鍔╂墜锛屽悕瀛楀彨鍏埅楸笺€?
-## 浣犵殑鑳藉姏
-1. 鐢熸垚Unity(C#)鍜孏odot(GDScript)浠ｇ爜
-2. 淇敼鐜版湁浠ｇ爜
-3. 鎼滅储鍏嶈垂鍙晢鐢ㄧ殑娓告垙绱犳潗
-4. 瑙ｉ噴娓告垙寮€鍙戞蹇?5. 璇婃柇鍜屼慨澶岯ug
-6. 鎻愪緵娓告垙寮€鍙戝缓璁?
-## 浠ｇ爜鏍煎紡瑕佹眰
-- GDScript浣跨敤extends Node
-- C#浣跨敤UnityEngine鍛藉悕绌洪棿
-- 浠ｇ爜瑕佹湁娉ㄩ噴
-- 閲嶈浠ｇ爜鐢ㄤ腑鏂囨敞閲?
-## 绱犳潗鎼滅储
-濡傛灉鐢ㄦ埛瑕佹壘绱犳潗锛岃繑鍥濲SON鏍煎紡锛?{"action": "search_assets", "query": "鎼滅储鍏抽敭璇?, "type": "sound|model|texture|sprite"}
+# 系统提示词（双语）
+const SYSTEM_PROMPT_ZH = """你是一个专业的游戏开发AI助手，名字叫八爪鱼。
 
-## 浠ｇ爜瑙ｉ噴
-濡傛灉鐢ㄦ埛璇锋眰瑙ｉ噴浠ｇ爜锛?瑙ｉ噴浠ｇ爜"銆?瑙ｉ噴杩欐浠ｇ爜"銆?鍒嗘瀽浠ｇ爜"銆?杩欐浠ｇ爜鍋氫簡浠€涔?绛夛級锛岃繑鍥濲SON鏍煎紡锛?{"action": "explain_code", "code": "鐢ㄦ埛閫変腑鐨勪唬鐮?}
+## 你的能力
+1. 生成Unity(C#)和Godot(GDScript)代码
+2. 修改现有代码
+3. 搜索免费可商用的游戏素材
+4. 解释游戏开发概念
+5. 诊断和修复Bug
+6. 提供游戏开发建议
 
-## 浠ｇ爜浼樺寲
-濡傛灉鐢ㄦ埛璇锋眰浼樺寲浠ｇ爜锛?浼樺寲浠ｇ爜"銆?浼樺寲杩欐浠ｇ爜"銆?浠ｇ爜浼樺寲"銆?濡備綍鏀硅繘"绛夛級锛岃繑鍥濲SON鏍煎紡锛?{"action": "optimize_code", "code": "鐢ㄦ埛閫変腑鐨勪唬鐮?}
+## 代码格式要求
+- GDScript使用extends Node
+- C#使用UnityEngine命名空间
+- 代码要有注释
+- 重要代码用中文注释
 
-## 妯℃澘璇锋眰
-濡傛灉鐢ㄦ埛瑕佷唬鐮佹ā鏉匡紝杩斿洖JSON鏍煎紡锛?{"action": "generate_template", "template": "妯℃澘鍚嶇О"}
+## 素材搜索
+如果用户要找素材，返回JSON格式：
+{"action": "search_assets", "query": "搜索关键词", "type": "sound|model|texture|sprite"}
 
-## 椤圭洰淇℃伅
-- 寮曟搸: Godot 4.2
-- 椤圭洰璺緞: {project_path}
+## 代码解释
+如果用户请求解释代码（"解释代码"、"解释这段代码"、"分析代码"、"这段代码做了什么"等），返回JSON格式：
+{"action": "explain_code", "code": "用户选中的代码"}
 
-鍥炵瓟瑕佺畝娲佸疄鐢紝鍍忓拰鏈嬪弸鑱婂ぉ涓€鏍疯嚜鐒躲€?""
+## 代码优化
+如果用户请求优化代码（"优化代码"、"优化这段代码"、"代码优化"、"如何改进"等），返回JSON格式：
+{"action": "optimize_code", "code": "用户选中的代码"}
+
+## 模板请求
+如果用户要代码模板，返回JSON格式：
+{"action": "generate_template", "template": "模板名称"}
+
+## 项目信息
+- 引擎: Godot 4.2
+- 项目路径: {project_path}
+
+回答要简洁实用，像和朋友聊天一样自然。"""
 
 const SYSTEM_PROMPT_EN = """You are a professional game development AI assistant named Octopus.
 
@@ -92,7 +102,8 @@ If user wants code template, return JSON:
 
 Be concise and practical, like chatting with a friend."""
 
-# 鑾峰彇绯荤粺鎻愮ず璇嶏紙鏍规嵁璇█璁剧疆锛?func get_system_prompt() -> String:
+# 获取系统提示词（根据语言设置）
+func get_system_prompt() -> String:
 	var lang = config.get("language", "auto")
 	if lang == "auto":
 		lang = "zh" if OS.get_locale_language() == "zh" else "en"
@@ -106,16 +117,16 @@ func _init():
 func configure(cfg: Dictionary):
 	config = cfg
 
-# 澶勭悊鐢ㄦ埛杈撳叆
+# 处理用户输入
 func process_message(user_input: String) -> void:
 	if is_processing:
-		errorOccurred.emit("姝ｅ湪澶勭悊涓婁竴涓姹傦紝璇风◢鍊?..")
+		errorOccurred.emit("正在处理上一个请求，请稍候...")
 		return
 	
 	is_processing = true
 	thinking_started.emit()
 	
-	# 瑙ｆ瀽鐗规畩鍛戒护
+	# 解析特殊命令
 	var special_result = parse_special_command(user_input)
 	if special_result:
 		await get_tree().create_timer(0.5).timeout
@@ -123,49 +134,49 @@ func process_message(user_input: String) -> void:
 		thinking_finished.emit(special_result)
 		return
 	
-	# 璋冪敤AI
+	# 调用AI
 	await call_ai(user_input)
 	is_processing = false
 
-# ==================== 椤圭洰妯℃澘鍔熻兘 ====================
+# ==================== 项目模板功能 ====================
 
 func get_project_templates() -> Array:
 	return [
 		{
 			"id": "2d_platformer",
-			"name": "2D 骞冲彴璺宠穬",
-			"description": "缁忓吀鐨勬í鐗堝钩鍙拌烦璺冩父鎴忔ā鏉?,
-			"features": ["鐜╁瑙掕壊", "骞冲彴", "閲戝竵鏀堕泦", "鏁屼汉", "鍏冲崱鍒囨崲"]
+			"name": "2D 平台跳跃",
+			"description": "经典的横版平台跳跃游戏模板",
+			"features": ["玩家角色", "平台", "金币收集", "敌人", "关卡切换"]
 		},
 		{
 			"id": "3d_fps",
-			"name": "3D 绗竴浜虹О灏勫嚮",
-			"description": "绗竴浜虹О灏勫嚮娓告垙妯℃澘",
-			"features": ["FPS鎺у埗鍣?, "姝﹀櫒绯荤粺", "鏁屼汉AI", "寮硅嵂绠＄悊", "鍒嗘暟绯荤粺"]
+			"name": "3D 第一人称射击",
+			"description": "第一人称射击游戏模板",
+			"features": ["FPS控制器", "武器系统", "敌人AI", "弹药管理", "分数系统"]
 		},
 		{
 			"id": "2d_topdown_shooter",
-			"name": "2D 淇瑙掑皠鍑?,
-			"description": "淇瑙掑皠鍑绘父鎴忔ā鏉?,
-			"features": ["鐜╁鎺у埗鍣?, "寮瑰箷绯荤粺", "閬撳叿鎺夎惤", "娉㈡绯荤粺", "鍟嗗簵"]
+			"name": "2D 俯视角射击",
+			"description": "俯视角射击游戏模板",
+			"features": ["玩家控制器", "弹幕系统", "道具掉落", "波次系统", "商店"]
 		},
 		{
 			"id": "3d_third_person",
-			"name": "3D 绗笁浜虹О鍔ㄤ綔",
-			"description": "绗笁浜虹О鍔ㄤ綔鍐掗櫓娓告垙妯℃澘",
-			"features": ["瑙掕壊鎺у埗鍣?, "鐩告満璺熼殢", "鏀诲嚮绯荤粺", "鏁屼汉AI", "鐢熷懡鍊?]
+			"name": "3D 第三人称动作",
+			"description": "第三人称动作冒险游戏模板",
+			"features": ["角色控制器", "相机跟随", "攻击系统", "敌人AI", "生命值"]
 		},
 		{
 			"id": "casual_puzzle",
-			"name": "浼戦棽鐩婃櫤娓告垙",
-			"description": "杞绘澗浼戦棽鐨勭泭鏅烘父鎴忔ā鏉?,
-			"features": ["鍏冲崱绯荤粺", "璁℃椂鍣?, "鍒嗘暟绯荤粺", "閬撳叿浣跨敤", "閫氬叧鍒ゅ畾"]
+			"name": "休闲益智游戏",
+			"description": "轻松休闲的益智游戏模板",
+			"features": ["关卡系统", "计时器", "分数系统", "道具使用", "通关判定"]
 		},
 		{
 			"id": "rpg",
-			"name": "RPG 瑙掕壊鎵紨",
-			"description": "缁忓吀RPG瑙掕壊鎵紨娓告垙妯℃澘",
-			"features": ["瑙掕壊灞炴€?, "瑁呭绯荤粺", "鎶€鑳芥爲", "浠诲姟绯荤粺", "鍟嗗簵浜ゆ槗"]
+			"name": "RPG 角色扮演",
+			"description": "经典RPG角色扮演游戏模板",
+			"features": ["角色属性", "装备系统", "技能树", "任务系统", "商店交易"]
 		}
 	]
 
@@ -179,13 +190,14 @@ func create_project_template(template_id: String) -> Dictionary:
 			break
 	
 	if not selected_template:
-		return {"success": false, "message": "鏈壘鍒版寚瀹氱殑妯℃澘"}
+		return {"success": false, "message": "未找到指定的模板"}
 	
-	# 鑾峰彇浠ｇ爜鐢熸垚鍣?	var code_gen = get_node_or_null("/root/CodeGenerator")
+	# 获取代码生成器
+	var code_gen = get_node_or_null("/root/CodeGenerator")
 	if not code_gen:
-		return {"success": false, "message": "浠ｇ爜鐢熸垚鍣ㄦ湭鍔犺浇"}
+		return {"success": false, "message": "代码生成器未加载"}
 	
-	# 鐢熸垚椤圭洰缁撴瀯
+	# 生成项目结构
 	var result = code_gen.generate_project_template(template_id, selected_template)
 	
 	return result
@@ -193,155 +205,165 @@ func create_project_template(template_id: String) -> Dictionary:
 func show_project_template_list() -> String:
 	var templates = get_project_templates()
 	var msg = """
-馃彈锔?**椤圭洰妯℃澘**
+🏗️ **项目模板**
 
-璇烽€夋嫨瑕佸垱寤虹殑椤圭洰绫诲瀷锛?
-**甯哥敤妯℃澘**
-1锔忊儯 [2D 骞冲彴璺宠穬] - 缁忓吀妯増璺宠穬娓告垙
-2锔忊儯 [2D 淇瑙掑皠鍑籡 - 淇瑙掑皠鍑绘父鎴?3锔忊儯 [3D 绗笁浜虹О鍔ㄤ綔] - 鍔ㄤ綔鍐掗櫓娓告垙
+请选择要创建的项目类型：
 
-**杩涢樁妯℃澘**
-4锔忊儯 [3D 绗竴浜虹О灏勫嚮] - FPS灏勫嚮娓告垙
-5锔忊儯 [浼戦棽鐩婃櫤娓告垙] - 杞绘澗浼戦棽娓告垙
-6锔忊儯 [RPG 瑙掕壊鎵紨] - 瑙掕壊鎵紨娓告垙
+**常用模板**
+1️⃣ [2D 平台跳跃] - 经典横版跳跃游戏
+2️⃣ [2D 俯视角射击] - 俯视角射击游戏
+3️⃣ [3D 第三人称动作] - 动作冒险游戏
 
-鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹?馃挕 杈撳叆銆屽垱寤?銆嶉€夋嫨绗?涓ā鏉?馃挕 杈撳叆銆屽垱寤?2D 骞冲彴銆嶅揩閫熼€夋嫨
+**进阶模板**
+4️⃣ [3D 第一人称射击] - FPS射击游戏
+5️⃣ [休闲益智游戏] - 轻松休闲游戏
+6️⃣ [RPG 角色扮演] - 角色扮演游戏
+
+━━━━━━━━━━━━━━━
+💡 输入「创建1」选择第1个模板
+💡 输入「创建 2D 平台」快速选择
 """
 	return msg
 
-# ==================== 鍦烘櫙鐢熸垚鍔熻兘 ====================
+# ==================== 场景生成功能 ====================
 
 func generate_scene(scene_config: Dictionary) -> Dictionary:
 	var code_gen = get_node_or_null("/root/CodeGenerator")
 	if not code_gen:
-		return {"success": false, "message": "浠ｇ爜鐢熸垚鍣ㄦ湭鍔犺浇"}
+		return {"success": false, "message": "代码生成器未加载"}
 	
 	var result = code_gen.generate_scene(scene_config)
 	return result
 
 func show_scene_generation_help() -> String:
 	return """
-馃幀 **鍦烘櫙鐢熸垚鍚戝**
+🎬 **场景生成向导**
 
-鍛婅瘔鎴戜綘鎯宠浠€涔堝満鏅紝鎴戞潵甯綘鐢熸垚锛?
-**鍦烘櫙鍏冪礌**
-鈥?馃 鐜╁鍑虹敓鐐?- PlayerSpawn
-鈥?馃懝 鏁屼汉 - Enemy
-鈥?馃獧 閲戝竵/閬撳叿 - Collectible
-鈥?馃П 闅滅鐗?- Obstacle
-鈥?馃弫 缁堢偣 - Goal
+告诉我你想要什么场景，我来帮你生成！
 
-**绀轰緥鎻忚堪**
-銆屽垱寤轰竴涓钩鍙拌烦璺冨叧鍗★紝鏈夌帺瀹跺嚭鐢熺偣銆?涓噾甯併€?涓晫浜哄拰缁堢偣銆?
-**蹇嵎鍛戒护**
-鈥?銆岀敓鎴愮畝鍗曞叧鍗°€? 鍒涘缓鍩虹骞冲彴鍏冲崱
-鈥?銆岀敓鎴愭垬鏂楀満鏅€? 鍒涘缓鍖呭惈鏁屼汉鐨勬垬鏂楀満鏅?鈥?銆岀敓鎴怋oss鎴块棿銆? 鍒涘缓Boss鎴樺満鏅?"""
+**场景元素**
+• 🧍 玩家出生点 - PlayerSpawn
+• 👹 敌人 - Enemy
+• 🪙 金币/道具 - Collectible
+• 🧱 障碍物 - Obstacle
+• 🏁 终点 - Goal
+
+**示例描述**
+「创建一个平台跳跃关卡，有玩家出生点、3个金币、2个敌人和终点」
+
+**快捷命令**
+• 「生成简单关卡」- 创建基础平台关卡
+• 「生成战斗场景」- 创建包含敌人的战斗场景
+• 「生成Boss房间」- 创建Boss战场景
+"""
 
 func get_scene_element_types() -> Array:
 	return [
-		{"id": "player_spawn", "name": "鐜╁鍑虹敓鐐?, "icon": "馃"},
-		{"id": "enemy", "name": "鏁屼汉", "icon": "馃懝"},
-		{"id": "collectible", "name": "鍙敹闆嗙墿", "icon": "馃獧"},
-		{"id": "obstacle", "name": "闅滅鐗?, "icon": "馃П"},
-		{"id": "platform", "name": "骞冲彴", "icon": "猬?},
-		{"id": "goal", "name": "缁堢偣/闂?, "icon": "馃弫"},
-		{"id": "spawner", "name": "鏁屼汉鍑虹敓鐐?, "icon": "馃拃"},
-		{"id": "trap", "name": "闄烽槺", "icon": "鈿狅笍"}
+		{"id": "player_spawn", "name": "玩家出生点", "icon": "🧍"},
+		{"id": "enemy", "name": "敌人", "icon": "👹"},
+		{"id": "collectible", "name": "可收集物", "icon": "🪙"},
+		{"id": "obstacle", "name": "障碍物", "icon": "🧱"},
+		{"id": "platform", "name": "平台", "icon": "⬜"},
+		{"id": "goal", "name": "终点/门", "icon": "🏁"},
+		{"id": "spawner", "name": "敌人出生点", "icon": "💀"},
+		{"id": "trap", "name": "陷阱", "icon": "⚠️"}
 	]
 
-# 瑙ｆ瀽鐗规畩鍛戒护
+# 解析特殊命令
 func parse_special_command(input: String) -> String:
 	var lower_input = input.to_lower()
 	
-	# 甯姪鍛戒护
-	if lower_input.begins_with("甯姪") or lower_input.begins_with("help"):
+	# 帮助命令
+	if lower_input.begins_with("帮助") or lower_input.begins_with("help"):
 		return get_help_text()
 	
-	# 妯℃澘鍛戒护
-	if lower_input.begins_with("妯℃澘") or lower_input.begins_with("template"):
+	# 模板命令
+	if lower_input.begins_with("模板") or lower_input.begins_with("template"):
 		return get_template_list()
 	
-	# 椤圭洰妯℃澘鍛戒护
-	if lower_input.begins_with("鍒涘缓椤圭洰") or lower_input.begins_with("鏂板缓椤圭洰") or lower_input.begins_with("椤圭洰妯℃澘"):
+	# 项目模板命令
+	if lower_input.begins_with("创建项目") or lower_input.begins_with("新建项目") or lower_input.begins_with("项目模板"):
 		return show_project_template_list()
 	
-	# 鍒涘缓鎸囧畾妯℃澘
-	if lower_input.begins_with("鍒涘缓"):
+	# 创建指定模板
+	if lower_input.begins_with("创建"):
 		return parse_create_template_command(input)
 	
-	# 鍦烘櫙鐢熸垚鍛戒护
-	if lower_input.begins_with("鐢熸垚鍦烘櫙") or lower_input.begins_with("鍒涘缓鍦烘櫙") or lower_input.begins_with("鍦烘櫙鍚戝"):
+	# 场景生成命令
+	if lower_input.begins_with("生成场景") or lower_input.begins_with("创建场景") or lower_input.begins_with("场景向导"):
 		return show_scene_generation_help()
 	
-	# 鍦烘櫙鐢熸垚蹇嵎鍛戒护
-	if lower_input.begins_with("鐢熸垚"):
+	# 场景生成快捷命令
+	if lower_input.begins_with("生成"):
 		return parse_scene_generation_command(input)
 	
-	# 璁剧疆鍛戒护
-	if lower_input.begins_with("璁剧疆") or lower_input.begins_with("config"):
-		return "璇锋墦寮€渚ц竟鏍忕殑銆岃缃€嶉潰鏉块厤缃瓵I妯″瀷銆?
+	# 设置命令
+	if lower_input.begins_with("设置") or lower_input.begins_with("config"):
+		return "请打开侧边栏的「设置」面板配置AI模型。"
 	
-	# 娓呯悊鍘嗗彶
-	if lower_input.begins_with("娓呴櫎") or lower_input.begins_with("clear"):
+	# 清理历史
+	if lower_input.begins_with("清除") or lower_input.begins_with("clear"):
 		conversation_history.clear()
-		return "宸叉竻闄ゅ璇濆巻鍙诧紒"
+		return "已清除对话历史！"
 	
-	# 鎼滅储绱犳潗
-	if lower_input.begins_with("鎵?) or lower_input.begins_with("鎼滅储") or lower_input.begins_with("search"):
+	# 搜索素材
+	if lower_input.begins_with("找") or lower_input.begins_with("搜索") or lower_input.begins_with("search"):
 		var query = input.substr(1).strip_edges()
 		if query.is_empty():
-			return "璇峰憡璇夋垜浣犳兂鎵句粈涔堢礌鏉愶紵\n姣斿锛氥€屾壘鐖嗙偢闊虫晥銆嶆垨銆屾悳绱㈢骞昏鑹叉ā鍨嬨€?
+			return "请告诉我你想找什么素材？\n比如：「找爆炸音效」或「搜索科幻角色模型」"
 		return generate_search_prompt(query)
 	
-	# 璋冭瘯鍔╂墜鍛戒护
-	if lower_input.begins_with("璋冭瘯") or lower_input.begins_with("鎵綽ug") or lower_input.begins_with("甯垜鎵綽ug") or lower_input.contains("鎶ラ敊浜?) or lower_input.contains("鍑洪敊浜?):
+	# 调试助手命令
+	if lower_input.begins_with("调试") or lower_input.begins_with("找bug") or lower_input.begins_with("帮我找bug") or lower_input.contains("报错了") or lower_input.contains("出错了"):
 		return _handle_debug_command(input)
 	
-	# 浠ｇ爜鎼滅储鍛戒护
-	if lower_input.begins_with("鎼滅储浠ｇ爜") or lower_input.begins_with("鎵句唬鐮?) or lower_input.begins_with("鏌ユ壘浠ｇ爜") or lower_input.begins_with("鎵炬壘"):
+	# 代码搜索命令
+	if lower_input.begins_with("搜索代码") or lower_input.begins_with("找代码") or lower_input.begins_with("查找代码") or lower_input.begins_with("找找"):
 		return _handle_search_code_command(input)
 	
 	return ""
 
-# 瑙ｆ瀽鍒涘缓妯℃澘鍛戒护
+# 解析创建模板命令
 func parse_create_template_command(input: String) -> String:
 	var lower = input.to_lower()
 	var templates = get_project_templates()
 	
-	# 鏁板瓧绱㈠紩
-	if input.begins_with("鍒涘缓"):
+	# 数字索引
+	if input.begins_with("创建"):
 		var num_str = input.substr(2).strip_edges()
 		if num_str.is_valid_int():
 			var idx = num_str.to_int() - 1
 			if idx >= 0 and idx < templates.size():
-				return "鈴?姝ｅ湪鍒涘缓銆? + templates[idx]["name"] + "銆戞ā鏉?.."
+				return "⏳ 正在创建【" + templates[idx]["name"] + "】模板..."
 	
-	# 鍏抽敭瀛楀尮閰?	for i in range(templates.size()):
+	# 关键字匹配
+	for i in range(templates.size()):
 		var t = templates[i]
 		var keywords = {
-			"2d_platformer": ["2d骞冲彴", "骞冲彴璺宠穬", "骞冲彴"],
-			"3d_fps": ["fps", "绗竴浜虹О", "灏勫嚮"],
-			"2d_topdown_shooter": ["淇瑙?, "淇灏勫嚮", "topdown"],
-			"3d_third_person": ["绗笁浜虹О", "鍔ㄤ綔", "3d鍔ㄤ綔"],
-			"casual_puzzle": ["浼戦棽", "鐩婃櫤", "puzzle"],
-			"rpg": ["rpg", "瑙掕壊鎵紨", "瑙掕壊"]
+			"2d_platformer": ["2d平台", "平台跳跃", "平台"],
+			"3d_fps": ["fps", "第一人称", "射击"],
+			"2d_topdown_shooter": ["俯视角", "俯视射击", "topdown"],
+			"3d_third_person": ["第三人称", "动作", "3d动作"],
+			"casual_puzzle": ["休闲", "益智", "puzzle"],
+			"rpg": ["rpg", "角色扮演", "角色"]
 		}
 		var kw_list = keywords.get(t["id"], [])
 		for kw in kw_list:
 			if lower.contains(kw):
-				return "鈴?姝ｅ湪鍒涘缓銆? + t["name"] + "銆戞ā鏉?.."
+				return "⏳ 正在创建【" + t["name"] + "】模板..."
 	
-	# 閫氱敤鍒涘缓鍛戒护
-	if lower.contains("鍒涘缓"):
+	# 通用创建命令
+	if lower.contains("创建"):
 		return show_project_template_list()
 	
 	return ""
 
-# 瑙ｆ瀽鍦烘櫙鐢熸垚鍛戒护
+# 解析场景生成命令
 func parse_scene_generation_command(input: String) -> String:
 	var lower = input.to_lower()
 	
-	# 绠€鍗曞叧鍗?	if lower.contains("绠€鍗曞叧鍗?) or lower.contains("鍩虹鍏冲崱"):
+	# 简单关卡
+	if lower.contains("简单关卡") or lower.contains("基础关卡"):
 		var config = {
 			"type": "platformer_level",
 			"elements": [
@@ -352,84 +374,92 @@ func parse_scene_generation_command(input: String) -> String:
 				{"type": "goal", "pos": Vector2(700, 450), "name": "Goal"}
 			]
 		}
-		return "鈴?姝ｅ湪鐢熸垚绠€鍗曞叧鍗?.."
+		return "⏳ 正在生成简单关卡..."
 	
-	# 鎴樻枟鍦烘櫙
-	if lower.contains("鎴樻枟") or lower.contains("enemy") or lower.contains("鏁屼汉"):
-		return "鈴?姝ｅ湪鐢熸垚鎴樻枟鍦烘櫙..."
+	# 战斗场景
+	if lower.contains("战斗") or lower.contains("enemy") or lower.contains("敌人"):
+		return "⏳ 正在生成战斗场景..."
 	
-	# Boss鎴块棿
+	# Boss房间
 	if lower.contains("boss"):
-		return "鈴?姝ｅ湪鐢熸垚Boss鎴块棿..."
+		return "⏳ 正在生成Boss房间..."
 	
 	return ""
 
 func generate_search_prompt(query: String) -> String:
-	return """鎴戝府浣犳悳绱€?s銆嶇浉鍏崇殑绱犳潗锛?
-馃帹 **鍏嶈垂鍙晢鐢ㄧ礌鏉愭簮**锛?
-**闊虫晥绫?*
-鈥?freesound.org - 鍏ㄧ悆鏈€澶у厤璐归煶鏁堝簱
-鈥?kenney.nl - CC0鍗忚锛岄珮璐ㄩ噺
+	return """我帮你搜索「%s」相关的素材！
 
-**妯″瀷绫?*
-鈥?kenney.nl - 3D妯″瀷銆佽鑹?鈥?opengameart.org - 绀惧尯绱犳潗
+🎨 **免费可商用素材源**：
 
-**绮剧伒鍥剧被**
-鈥?kenney.nl - 2D娓告垙绱犳潗
-鈥?game-icons.net - 鍥炬爣绱犳潗
+**音效类**
+• freesound.org - 全球最大免费音效库
+• kenney.nl - CC0协议，高质量
 
-闇€瑕佹垜甯綘鎼滅储鍚楋紵杈撳叆銆屽紑濮嬫悳绱€嶇户缁€?"" % query
+**模型类**
+• kenney.nl - 3D模型、角色
+• opengameart.org - 社区素材
 
-# ==================== 璋冭瘯鍔╂墜鍔熻兘 ====================
+**精灵图类**
+• kenney.nl - 2D游戏素材
+• game-icons.net - 图标素材
+
+需要我帮你搜索吗？输入「开始搜索」继续。""" % query
+
+# ==================== 调试助手功能 ====================
 
 func _handle_debug_command(input: String) -> String:
-	"""澶勭悊璋冭瘯鍛戒护"""
+	"""处理调试命令"""
 	var lower = input.to_lower()
 	
-	# 妫€鏌ユ槸鍚︽槸鐩存帴绮樿创閿欒鏃ュ織
+	# 检查是否是直接粘贴错误日志
 	if "error" in lower or "exception" in lower or "null" in lower or "nullreference" in lower:
 		return _analyze_error_log(input)
 	
-	# 閫氱敤璋冭瘯妯″紡
+	# 通用调试模式
 	last_error_context = {
 		"user_description": input,
 		"timestamp": Time.get_datetime_string_from_system()
 	}
 	
-	return """馃悰 **璋冭瘯鍔╂墜宸插惎鍔?*
+	return """🐛 **调试助手已启动**
 
-璇峰憡璇夋垜锛?1. **閿欒淇℃伅** - 绮樿创瀹屾暣鐨勯敊璇棩蹇?2. **闂鎻忚堪** - 浠€涔堟儏鍐典笅鍑虹幇闂
-3. **鏈熸湜琛屼负** - 浣犳兂瑕佷粈涔堟晥鏋?
-**甯哥敤璋冭瘯鍛戒护**
-鈥?銆岃皟璇曘€? 鍚姩璋冭瘯妯″紡
-鈥?銆屽垎鏋愯繖娈典唬鐮併€? AI甯綘鍒嗘瀽浠ｇ爜闂
-鈥?銆屾坊鍔犳棩蹇椼€? 鐢熸垚璋冭瘯鏃ュ織浠ｇ爜
+请告诉我：
+1. **错误信息** - 粘贴完整的错误日志
+2. **问题描述** - 什么情况下出现问题
+3. **期望行为** - 你想要什么效果
 
-馃挕 鐩存帴绮樿创閿欒淇℃伅锛孉I浼氳嚜鍔ㄥ垎鏋愬師鍥狅紒"""
+**常用调试命令**
+• 「调试」- 启动调试模式
+• 「分析这段代码」- AI帮你分析代码问题
+• 「添加日志」- 生成调试日志代码
+
+💡 直接粘贴错误信息，AI会自动分析原因！"""
 
 func _analyze_error_log(error_log: String) -> String:
-	"""鍒嗘瀽閿欒鏃ュ織骞舵彁渚涜В鍐虫柟妗?""
+	"""分析错误日志并提供解决方案"""
 	debug_suggestions.clear()
 	
-	# 鎻愬彇鍏抽敭閿欒淇℃伅
+	# 提取关键错误信息
 	var error_type = _extract_error_type(error_log)
 	var error_msg = _extract_error_message(error_log)
 	var possible_causes = _analyze_error_type(error_type)
 	
-	# 淇濆瓨閿欒涓婁笅鏂?	last_error_context = {
+	# 保存错误上下文
+	last_error_context = {
 		"error_type": error_type,
 		"error_message": error_msg,
 		"timestamp": Time.get_datetime_string_from_system()
 	}
 	
 	var report = """
-馃悰 **閿欒鍒嗘瀽鎶ュ憡**
+🐛 **错误分析报告**
 
-**閿欒绫诲瀷:** %s
-**閿欒淇℃伅:** %s
+**错误类型:** %s
+**错误信息:** %s
 
-鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹?
-**馃攳 鍙兘鍘熷洜:**
+━━━━━━━━━━━━━━━━━━━━━━━
+
+**🔍 可能原因:**
 
 """ % [error_type, error_msg]
 	
@@ -437,8 +467,9 @@ func _analyze_error_log(error_log: String) -> String:
 		report += "%d. %s\n" % [i + 1, possible_causes[i]]
 	
 	report += """
-鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹?
-**馃敡 瑙ｅ喅鏂规寤鸿:**
+━━━━━━━━━━━━━━━━━━━━━━━
+
+**🔧 解决方案建议:**
 
 """
 	
@@ -447,234 +478,243 @@ func _analyze_error_log(error_log: String) -> String:
 		report += "**%d. %s**\n%s\n\n" % [i + 1, solutions[i].title, solutions[i].description]
 	
 	report += """
-鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹佲攣鈹?
-**馃挕 璋冭瘯鎶€宸?*
+━━━━━━━━━━━━━━━━━━━━━━━
 
-鈥?浣跨敤 `print()` 杈撳嚭鍙橀噺鍊?鈥?浣跨敤 `push_error()` 杈撳嚭閿欒淇℃伅
-鈥?浣跨敤鏂偣鏆傚仠绋嬪簭鏌ョ湅鐘舵€?鈥?妫€鏌ョ┖鍊煎紩鐢?`if node != null:`
+**💡 调试技巧**
 
-**涓嬩竴姝ユ搷浣?*
-鈥?杈撳叆銆屾坊鍔犳柇鐐广€? 鐢熸垚鏂偣寤鸿浠ｇ爜
-鈥?杈撳叆銆岀敓鎴愭棩蹇椼€? 鐢熸垚璋冭瘯鏃ュ織浠ｇ爜
-鈥?杈撳叆銆屾煡鐪嬬浉鍏充唬鐮併€? AI鎼滅储鐩稿叧浠ｇ爜鏂囦欢
+• 使用 `print()` 输出变量值
+• 使用 `push_error()` 输出错误信息
+• 使用断点暂停程序查看状态
+• 检查空值引用 `if node != null:`
+
+**下一步操作**
+• 输入「添加断点」- 生成断点建议代码
+• 输入「生成日志」- 生成调试日志代码
+• 输入「查看相关代码」- AI搜索相关代码文件
 """
 	
 	return report
 
 func _extract_error_type(log: String) -> String:
-	"""鎻愬彇閿欒绫诲瀷"""
+	"""提取错误类型"""
 	var lower = log.to_lower()
 	
 	if "null" in lower and ("reference" in lower or "pointer" in lower):
-		return "绌哄紩鐢ㄥ紓甯?(NullReferenceException)"
+		return "空引用异常 (NullReferenceException)"
 	if "index" in lower and "out of range" in lower:
-		return "鏁扮粍瓒婄晫 (IndexOutOfRangeException)"
+		return "数组越界 (IndexOutOfRangeException)"
 	if "invalid call" in lower or "call" in lower and "none" in lower:
-		return "鏃犳晥鏂规硶璋冪敤"
+		return "无效方法调用"
 	if "parsing" in lower or "syntax" in lower:
-		return "璇硶閿欒 (Syntax Error)"
+		return "语法错误 (Syntax Error)"
 	if "type" in lower and "mismatch" in lower:
-		return "绫诲瀷涓嶅尮閰?(Type Mismatch)"
+		return "类型不匹配 (Type Mismatch)"
 	if "file" in lower and "not found" in lower:
-		return "鏂囦欢鏈壘鍒?
+		return "文件未找到"
 	if "permission" in lower or "access" in lower:
-		return "鏉冮檺璁块棶閿欒"
+		return "权限访问错误"
 	
-	return "鏈煡閿欒绫诲瀷"
+	return "未知错误类型"
 
 func _extract_error_message(log: String) -> String:
-	"""鎻愬彇閿欒娑堟伅"""
+	"""提取错误消息"""
 	var lines = log.split("\n")
 	for line in lines:
 		if "error" in line.to_lower() or "exception" in line.to_lower():
 			return line.strip_edges()
-	return "鏈壘鍒板叿浣撻敊璇俊鎭?
+	return "未找到具体错误信息"
 
 func _analyze_error_type(error_type: String) -> Array:
-	"""鍒嗘瀽閿欒绫诲瀷鍙兘鐨勫師鍥?""
+	"""分析错误类型可能的原因"""
 	var causes: Array = []
 	
 	match error_type:
-		"绌哄紩鐢ㄥ紓甯?(NullReferenceException)":
+		"空引用异常 (NullReferenceException)":
 			causes = [
-				"鍙橀噺鏈垵濮嬪寲灏变娇鐢?,
-				"鑺傜偣璺緞閿欒鎴栬妭鐐逛笉瀛樺湪",
-				"寮傛鍔犺浇鐨勮妭鐐瑰皻鏈姞杞藉畬鎴?,
-				"鏁扮粍/瀛楀吀璁块棶浜嗕笉瀛樺湪鐨勭储寮?
+				"变量未初始化就使用",
+				"节点路径错误或节点不存在",
+				"异步加载的节点尚未加载完成",
+				"数组/字典访问了不存在的索引"
 			]
-		"鏁扮粍瓒婄晫 (IndexOutOfRangeException)":
+		"数组越界 (IndexOutOfRangeException)":
 			causes = [
-				"寰幆绱㈠紩瓒呭嚭鏁扮粍闀垮害",
-				"浣跨敤 -1 浣滀负绱㈠紩璁块棶",
-				"鏁扮粍涓虹┖鏃惰闂涓€涓厓绱?
+				"循环索引超出数组长度",
+				"使用 -1 作为索引访问",
+				"数组为空时访问第一个元素"
 			]
-		"鏃犳晥鏂规硶璋冪敤":
+		"无效方法调用":
 			causes = [
-				"璋冪敤浜嗕笉瀛樺湪鐨勫嚱鏁?,
-				"鍦ㄥ璞′负null鏃惰皟鐢ㄥ叾鏂规硶",
-				"鍙傛暟鏁伴噺鎴栫被鍨嬩笉鍖归厤"
+				"调用了不存在的函数",
+				"在对象为null时调用其方法",
+				"参数数量或类型不匹配"
 			]
-		"璇硶閿欒 (Syntax Error)":
+		"语法错误 (Syntax Error)":
 			causes = [
-				"缂哄皯鍒嗗彿鎴栨嫭鍙?,
-				"鍏抽敭瀛楁嫾鍐欓敊璇?,
-				"瀛楃涓叉湭姝ｇ‘闂悎"
+				"缺少分号或括号",
+				"关键字拼写错误",
+				"字符串未正确闭合"
 			]
 		_:
 			causes = [
-				"鍙傛暟浼犻€掗敊璇?,
-				"璧勬簮鍔犺浇澶辫触",
-				"澶栭儴渚濊禆鏈纭厤缃?
+				"参数传递错误",
+				"资源加载失败",
+				"外部依赖未正确配置"
 			]
 	
 	return causes
 
 func _get_solution_suggestions(error_type: String) -> Array:
-	"""鑾峰彇閽堝鐗瑰畾閿欒鐨勮В鍐虫柟妗?""
+	"""获取针对特定错误的解决方案"""
 	var solutions: Array = []
 	
 	match error_type:
-		"绌哄紩鐢ㄥ紓甯?(NullReferenceException)":
+		"空引用异常 (NullReferenceException)":
 			solutions = [
 				{
-					"title": "娣诲姞绌哄€兼鏌?,
-					"description": "鍦ㄨ闂璞″墠妫€鏌ユ槸鍚︿负null\n```gdscript\nif node != null:\n    node.do_something()\n```"
+					"title": "添加空值检查",
+					"description": "在访问对象前检查是否为null\n```gdscript\nif node != null:\n    node.do_something()\n```"
 				},
 				{
-					"title": "浣跨敤瀹夊叏瀵艰埅",
-					"description": "浣跨敤 `?.` 杩愮畻绗﹀畨鍏ㄨ闂睘鎬n```gdscript\nvar value = node?.some_property\n```"
+					"title": "使用安全导航",
+					"description": "使用 `?.` 运算符安全访问属性\n```gdscript\nvar value = node?.some_property\n```"
 				},
 				{
-					"title": "纭繚鑺傜偣瀛樺湪",
-					"description": "鍦?_ready() 涓幏鍙栬妭鐐瑰苟妫€鏌n```gdscript\nfunc _ready():\n    node = get_node_or_null(\"Path/To/Node\")\n    if node == null:\n        push_error(\"Node not found!\")\n```"
+					"title": "确保节点存在",
+					"description": "在 _ready() 中获取节点并检查\n```gdscript\nfunc _ready():\n    node = get_node_or_null(\"Path/To/Node\")\n    if node == null:\n        push_error(\"Node not found!\")\n```"
 				}
 			]
-		"鏁扮粍瓒婄晫 (IndexOutOfRangeException)":
+		"数组越界 (IndexOutOfRangeException)":
 			solutions = [
 				{
-					"title": "妫€鏌ユ暟缁勯暱搴?,
-					"description": "璁块棶鍓嶆鏌ョ储寮曟槸鍚︽湁鏁圽n```gdscript\nif index >= 0 and index < array.size():\n    var value = array[index]\n```"
+					"title": "检查数组长度",
+					"description": "访问前检查索引是否有效\n```gdscript\nif index >= 0 and index < array.size():\n    var value = array[index]\n```"
 				},
 				{
-					"title": "浣跨敤 clamp() 闄愬埗鑼冨洿",
-					"description": "闄愬埗绱㈠紩鍦ㄦ湁鏁堣寖鍥村唴\n```gdscript\nvar safe_index = clamp(index, 0, array.size() - 1)\n```"
+					"title": "使用 clamp() 限制范围",
+					"description": "限制索引在有效范围内\n```gdscript\nvar safe_index = clamp(index, 0, array.size() - 1)\n```"
 				}
 			]
 		_:
 			solutions = [
 				{
-					"title": "娣诲姞鏃ュ織杈撳嚭",
-					"description": "鍦ㄥ叧閿綅缃坊鍔?print() 甯姪瀹氫綅闂"
+					"title": "添加日志输出",
+					"description": "在关键位置添加 print() 帮助定位问题"
 				},
 				{
-					"title": "浣跨敤鏂偣璋冭瘯",
-					"description": "鍦ㄥ彲鐤戜唬鐮佸璁剧疆鏂偣锛岄€愭鎵ц鏌ョ湅鍙橀噺鍊?
+					"title": "使用断点调试",
+					"description": "在可疑代码处设置断点，逐步执行查看变量值"
 				}
 			]
 	
 	return solutions
 
-# 璋冭瘯鍔╂墜 - 娣诲姞鏂偣寤鸿
+# 调试助手 - 添加断点建议
 func generate_breakpoint_suggestions(error_context: Dictionary = {}) -> String:
-	"""鐢熸垚鏂偣璁剧疆寤鸿"""
+	"""生成断点设置建议"""
 	var context = error_context if not error_context.is_empty() else last_error_context
 	
 	return """
-馃敶 **鏂偣璁剧疆寤鸿**
+🔴 **断点设置建议**
 
-鏍规嵁閿欒淇℃伅锛屽缓璁湪浠ヤ笅浣嶇疆璁剧疆鏂偣锛?
-**1. 鍙橀噺鍒濆鍖栧**
+根据错误信息，建议在以下位置设置断点：
+
+**1. 变量初始化处**
 ```gdscript
-func _ready():\n    # 鍦ㄨ繖閲岃缃柇鐐癸紝妫€鏌ュ彉閲忔槸鍚︽纭垵濮嬪寲
+func _ready():\n    # 在这里设置断点，检查变量是否正确初始化
     player = get_node_or_null("Player")
-    print(\"Player node: \", player)  # 娣诲姞鏃ュ織
+    print(\"Player node: \", player)  # 添加日志
 ```
 
-**2. 绌哄€间娇鐢ㄥ墠**
+**2. 空值使用前**
 ```gdscript
-# 浣跨敤杩欎釜杈呭姪鍑芥暟妫€鏌?func safe_call(node: Node, method: String) -> void:\n    if node and node.has_method(method):\n        node.call(method)\n```
+# 使用这个辅助函数检查
+func safe_call(node: Node, method: String) -> void:\n    if node and node.has_method(method):\n        node.call(method)\n```
 
-**3. 鏁扮粍璁块棶澶?*
+**3. 数组访问处**
 ```gdscript
 func get_item(index: int) -> Variant:\n    if index < 0 or index >= items.size():\n        push_error(\"Invalid index: %d\" % index)\n        return null\n    return items[index]
 ```
 
-馃挕 **璋冭瘯鎶€宸?*
-鈥?F6 寮€濮嬭皟璇?鈥?F8 鍗曟鎵ц
-鈥?F9 鍒囨崲鏂偣
+💡 **调试技巧**
+• F6 开始调试
+• F8 单步执行
+• F9 切换断点
 """
 
-# 璋冭瘯鍔╂墜 - 鐢熸垚鏃ュ織寤鸿
+# 调试助手 - 生成日志建议
 func generate_debug_log_suggestions(error_context: Dictionary = {}) -> String:
-	"""鐢熸垚璋冭瘯鏃ュ織浠ｇ爜寤鸿"""
+	"""生成调试日志代码建议"""
 	var context = error_context if not error_context.is_empty() else last_error_context
-	var error_type = context.get("error_type", "鏈煡")
+	var error_type = context.get("error_type", "未知")
 	
 	var log_template = """
-馃摑 **璋冭瘯鏃ュ織浠ｇ爜**
+📝 **调试日志代码**
 
-鍦ㄥ叧閿綅缃坊鍔犱互涓嬫棩蹇椾唬鐮侊細
+在关键位置添加以下日志代码：
 
-**1. 鍑芥暟鍏ュ彛鏃ュ織**
+**1. 函数入口日志**
 ```gdscript
 func _process(delta: float) -> void:\n    print(\"[DEBUG] _process called, delta=\", delta)\n```
 
-**2. 鍙橀噺鐘舵€佹棩蹇?*
+**2. 变量状态日志**
 ```gdscript
 func update() -> void:\n    print(\"[DEBUG] health=\", health, \" speed=\", speed)\n    if health <= 0:\n        push_error(\"[CRITICAL] Health reached zero!\")\n```
 
-**3. 鏉′欢鍒嗘敮鏃ュ織**
+**3. 条件分支日志**
 ```gdscript
 if condition:\n    print(\"[DEBUG] Condition met\")\nelse:\n    print(\"[DEBUG] Condition not met, expected values:\", expected)\n```
 
-**4. 寮傛鎿嶄綔鏃ュ織**
+**4. 异步操作日志**
 ```gdscript
 func load_resource(path: String) -> void:\n    print(\"[DEBUG] Loading: \", path)\n    var result = await ResourceLoader.load_threaded_request(path)\n    print(\"[DEBUG] Load complete: \", result)\n```
 
-**5. 閿欒鏃ュ織锛堟帹鑽愶級**
+**5. 错误日志（推荐）**
 ```gdscript
 push_error(\"[ERROR] Failed to initialize: \" + str(error_code))\npush_warning(\"[WARN] Null value detected in \", var_name)\n```
 """
 	
 	return log_template
 
-# 浠ｇ爜鎼滅储鍔熻兘
+# 代码搜索功能
 func _handle_search_code_command(input: String) -> String:
-	"""澶勭悊浠ｇ爜鎼滅储鍛戒护"""
+	"""处理代码搜索命令"""
 	var lower = input.to_lower()
 	var query = ""
 	
-	# 鎻愬彇鎼滅储鍏抽敭璇?	if lower.begins_with("鎼滅储浠ｇ爜") or lower.begins_with("鎵句唬鐮?) or lower.begins_with("鏌ユ壘浠ｇ爜"):
-		query = input.substr(4 if lower.begins_with("鎼滅储") or lower.begins_with("鎵句唬鐮?) else 3).strip_edges()
-	elif lower.begins_with("鎵炬壘"):
+	# 提取搜索关键词
+	if lower.begins_with("搜索代码") or lower.begins_with("找代码") or lower.begins_with("查找代码"):
+		query = input.substr(4 if lower.begins_with("搜索") or lower.begins_with("找代码") else 3).strip_edges()
+	elif lower.begins_with("找找"):
 		query = input.substr(2).strip_edges()
 	
 	if query.is_empty():
-		return """馃攳 **浠ｇ爜鎼滅储**
+		return """🔍 **代码搜索**
 
-璇峰憡璇夋垜浣犳兂鎼滅储浠€涔堬紵
+请告诉我你想搜索什么？
 
-**绀轰緥**
-鈥?銆屾悳绱唬鐮?绉诲姩銆? 鎼滅储绉诲姩鐩稿叧浠ｇ爜
-鈥?銆屾壘鎵綪layer銆? 鎼滅储Player鐩稿叧浠ｇ爜
-鈥?銆屾悳绱唬鐮?纰版挒妫€娴嬨€? 鎼滅储纰版挒妫€娴嬩唬鐮?
-馃挕 鍙互鎼滅储鍑芥暟鍚嶃€佸彉閲忓悕銆佺被鍚嶆垨鍏抽敭璇?""
+**示例**
+• 「搜索代码:移动」- 搜索移动相关代码
+• 「找找Player」- 搜索Player相关代码
+• 「搜索代码:碰撞检测」- 搜索碰撞检测代码
 
-	# 璋冪敤椤圭洰璇诲彇鍣ㄨ繘琛屾悳绱?	var project_reader = get_node_or_null("/root/ProjectReader")
+💡 可以搜索函数名、变量名、类名或关键词"""
+
+	# 调用项目读取器进行搜索
+	var project_reader = get_node_or_null("/root/ProjectReader")
 	if project_reader:
 		last_search_query = query
 		var report = project_reader.generate_search_report(query)
 		last_search_results = project_reader.search_code(query)
 		return report
 	else:
-		return "鈿狅笍 椤圭洰璇诲彇鍣ㄦ湭鍔犺浇锛屾棤娉曟悳绱唬鐮?
+		return "⚠️ 项目读取器未加载，无法搜索代码"
 
-# ==================== 浠ｇ爜瑙ｉ噴鍜屼紭鍖?====================
+# ==================== 代码解释和优化 ====================
 
 func analyze_code(code: String, analysis_type: String) -> void:
-	"""鍒嗘瀽浠ｇ爜锛堣В閲婃垨浼樺寲锛?""
+	"""分析代码（解释或优化）"""
 	if is_processing:
-		errorOccurred.emit("姝ｅ湪澶勭悊涓婁竴涓姹傦紝璇风◢鍊?..")
+		errorOccurred.emit("正在处理上一个请求，请稍候...")
 		return
 	
 	is_processing = true
@@ -688,37 +728,47 @@ func analyze_code(code: String, analysis_type: String) -> void:
 			prompt = build_optimize_prompt(code)
 		_:
 			is_processing = false
-			thinking_finished.emit("鉂?鏈煡鐨勫垎鏋愮被鍨?)
+			thinking_finished.emit("❌ 未知的分析类型")
 			return
 	
 	await call_ai_for_analysis(prompt, analysis_type)
 	is_processing = false
 
 func build_explain_prompt(code: String) -> String:
-	return """璇疯缁嗚В閲婁互涓嬩唬鐮佺殑鍔熻兘銆侀€昏緫鍜岀敤閫斻€?
-## 浠ｇ爜
+	return """请详细解释以下代码的功能、逻辑和用途。
+
+## 代码
 ```
 %s
 ```
 
-## 瑙ｉ噴瑕佹眰
-璇蜂粠浠ヤ笅鍑犱釜缁村害杩涜瑙ｉ噴锛?1. **鏁翠綋鍔熻兘** - 杩欐浠ｇ爜鍋氫粈涔?2. **閫愯/閫愭瑙ｆ瀽** - 鍏抽敭閮ㄥ垎鐨勯€昏緫
-3. **鏍稿績鍙橀噺鍜屽嚱鏁?* - 閲嶈鍏冪礌鐨勪綔鐢?4. **浣跨敤鍦烘櫙** - 閫傚悎鍦ㄤ粈涔堟儏鍐典笅浣跨敤
+## 解释要求
+请从以下几个维度进行解释：
+1. **整体功能** - 这段代码做什么
+2. **逐行/逐段解析** - 关键部分的逻辑
+3. **核心变量和函数** - 重要元素的作用
+4. **使用场景** - 适合在什么情况下使用
 
-璇风敤涓枃鍥炵瓟锛岃瑷€瑕佺畝娲佹槗鎳傘€傚鏋滀唬鐮佹槸GDScript璇风敤GDScript鏈锛屽鏋滄槸C#璇风敤C#鏈銆?"" % code
+请用中文回答，语言要简洁易懂。如果代码是GDScript请用GDScript术语，如果是C#请用C#术语。""" % code
 
 func build_optimize_prompt(code: String) -> String:
-	return """璇峰垎鏋愪互涓嬩唬鐮侊紝骞舵彁渚涗紭鍖栧缓璁拰浼樺寲鍚庣殑浠ｇ爜銆?
-## 浠ｇ爜
+	return """请分析以下代码，并提供优化建议和优化后的代码。
+
+## 代码
 ```
 %s
 ```
 
-## 浼樺寲瑕佹眰
-璇蜂粠浠ヤ笅鍑犱釜缁村害杩涜鍒嗘瀽锛?1. **鎬ц兘** - 鏄惁鏈夋€ц兘闂锛屽浣曟敼杩?2. **鍙鎬?* - 浠ｇ爜鏄惁娓呮櫚鏄撹锛屽浣曚紭鍖?3. **瀹夊叏鎬?* - 鏄惁鏈夋綔鍦ㄧ殑瀹夊叏椋庨櫓
-4. **鏈€浣冲疄璺?* - 鏄惁閬靛惊Godot/C#寮€鍙戣鑼?
-鐒跺悗鎻愪緵浼樺寲鍚庣殑浠ｇ爜锛岀敤```gdscript鎴朻``csharp鍖呰９銆?
-璇风敤涓枃鍥炵瓟銆?"" % code
+## 优化要求
+请从以下几个维度进行分析：
+1. **性能** - 是否有性能问题，如何改进
+2. **可读性** - 代码是否清晰易读，如何优化
+3. **安全性** - 是否有潜在的安全风险
+4. **最佳实践** - 是否遵循Godot/C#开发规范
+
+然后提供优化后的代码，用```gdscript或```csharp包裹。
+
+请用中文回答。""" % code
 
 func call_ai_for_analysis(prompt: String, analysis_type: String) -> void:
 	var model_config = get_model_config()
@@ -730,9 +780,9 @@ func call_ai_for_analysis(prompt: String, analysis_type: String) -> void:
 		var fallback = ""
 		match analysis_type:
 			"explain":
-				fallback = "鉂?璇峰厛鍦ㄨ缃腑閰嶇疆AI妯″瀷锛乗n\n馃搵 浠ヤ笅鏄唬鐮佺殑绠€瑕佽鏄庯細\n锛堥渶瑕丄I鎵嶈兘鎻愪緵璇︾粏瑙ｉ噴锛?
+				fallback = "❌ 请先在设置中配置AI模型！\n\n📋 以下是代码的简要说明：\n（需要AI才能提供详细解释）"
 			"optimize":
-				fallback = "鉂?璇峰厛鍦ㄨ缃腑閰嶇疆AI妯″瀷锛乗n\n馃搵 浠ヤ笅鏄唬鐮佺殑绠€瑕佷紭鍖栧缓璁細\n锛堥渶瑕丄I鎵嶈兘鎻愪緵璇︾粏浼樺寲鏂规锛?
+				fallback = "❌ 请先在设置中配置AI模型！\n\n📋 以下是代码的简要优化建议：\n（需要AI才能提供详细优化方案）"
 		code_analysis_finished.emit(fallback, analysis_type)
 		return
 	
@@ -757,7 +807,7 @@ func call_ai_for_analysis(prompt: String, analysis_type: String) -> void:
 	)
 	
 	if error != OK:
-		thinking_finished.emit("鉂?缃戠粶璇锋眰澶辫触锛岃妫€鏌ョ綉缁滆繛鎺?)
+		thinking_finished.emit("❌ 网络请求失败，请检查网络连接")
 
 func _on_request_completed(result: int, response_code: int, headers: Array, body: PackedByteArray) -> void:
 	if response_code == 200:
@@ -765,7 +815,7 @@ func _on_request_completed(result: int, response_code: int, headers: Array, body
 		if json and json is Dictionary:
 			var response_text = extract_response(json)
 			
-			# 淇濆瓨鍒板巻鍙诧紙浠呮櫘閫氬璇濇ā寮忥級
+			# 保存到历史（仅普通对话模式）
 			if _analysis_mode == "":
 				conversation_history.append({"role": "user", "content": _pending_user_message})
 				conversation_history.append({"role": "assistant", "content": response_text})
@@ -773,7 +823,7 @@ func _on_request_completed(result: int, response_code: int, headers: Array, body
 					conversation_history = conversation_history.slice(0, 40)
 				thinking_finished.emit(response_text)
 			else:
-				# 浠ｇ爜鍒嗘瀽妯″紡
+				# 代码分析模式
 				var analysis_type = _analysis_mode
 				_analysis_mode = ""
 				_pending_user_message = ""
@@ -781,19 +831,19 @@ func _on_request_completed(result: int, response_code: int, headers: Array, body
 		else:
 			_analysis_mode = ""
 			_pending_user_message = ""
-			thinking_finished.emit("鉂?瑙ｆ瀽鍝嶅簲澶辫触")
+			thinking_finished.emit("❌ 解析响应失败")
 	elif response_code == 401:
 		_analysis_mode = ""
 		_pending_user_message = ""
-		thinking_finished.emit("鉂?API Key鏃犳晥锛岃妫€鏌ラ厤缃?)
+		thinking_finished.emit("❌ API Key无效，请检查配置")
 	elif response_code == 429:
 		_analysis_mode = ""
 		_pending_user_message = ""
-		thinking_finished.emit("鈴?璇锋眰杩囦簬棰戠箒锛岃绋嶅悗鍐嶈瘯")
+		thinking_finished.emit("⏳ 请求过于频繁，请稍后再试")
 	else:
 		_analysis_mode = ""
 		_pending_user_message = ""
-		thinking_finished.emit("鉂?璇锋眰澶辫触: " + str(response_code))
+		thinking_finished.emit("❌ 请求失败: " + str(response_code))
 
 func get_help_text() -> String:
 	var lang = config.get("language", "auto")
@@ -801,48 +851,49 @@ func get_help_text() -> String:
 		lang = "zh" if OS.get_locale_language() == "zh" else "en"
 	
 	if lang == "zh":
-		return """馃摉 **浣跨敤甯姪**
+		return """📖 **使用帮助**
 
-**甯哥敤鍛戒护**
-鈥?銆屽府鎴戝仛XXX娓告垙銆? 鐢熸垚娓告垙浠ｇ爜
-鈥?銆岀粰鐜╁鍔燲XX鍔熻兘銆? 淇敼浠ｇ爜
-鈥?銆屾壘XXX绱犳潗銆? 鎼滅储绱犳潗
-鈥?銆屼粈涔堟槸XXX銆? 瑙ｇ瓟闂
-鈥?銆屾ā鏉裤€? 鏌ョ湅浠ｇ爜妯℃澘
-鈥?銆屾竻闄ゃ€? 娓呯┖瀵硅瘽鍘嗗彶
+**常用命令**
+• 「帮我做XXX游戏」- 生成游戏代码
+• 「给玩家加XXX功能」- 修改代码
+• 「找XXX素材」- 搜索素材
+• 「什么是XXX」- 解答问题
+• 「模板」- 查看代码模板
+• 「清除」- 清空对话历史
 
-**浠ｇ爜鍒嗘瀽涓庝紭鍖?*
-鈥?銆岃В閲婁唬鐮併€? 閫変腑浠ｇ爜鍚庤緭鍏ワ紝AI鍒嗘瀽浠ｇ爜鍔熻兘
-鈥?銆屼紭鍖栦唬鐮併€? 閫変腑浠ｇ爜鍚庤緭鍏ワ紝AI鎻愪緵浼樺寲寤鸿
-鈥?銆屼唬鐮佽В閲娿€? 鍚屼笂锛岃В閲婇€変腑浠ｇ爜
-鈥?銆屼唬鐮佷紭鍖栥€? 鍚屼笂锛屼紭鍖栭€変腑浠ｇ爜
+**代码分析与优化**
+• 「解释代码」- 选中代码后输入，AI分析代码功能
+• 「优化代码」- 选中代码后输入，AI提供优化建议
+• 「代码解释」- 同上，解释选中代码
+• 「代码优化」- 同上，优化选中代码
 
-**蹇嵎鎿嶄綔**
-鈥?浠ｇ爜妯℃澘 - 蹇€熺敓鎴?鈥?绱犳潗鎼滅储 - 鎼滅储鍏嶈垂绱犳潗
-鈥?AI閰嶇疆 - 璁剧疆妯″瀷
+**快捷操作**
+• 代码模板 - 快速生成
+• 素材搜索 - 搜索免费素材
+• AI配置 - 设置模型
 
-鏈変粈涔堥棶棰樺敖绠￠棶锛侌煇?""
+有什么问题尽管问！🐙"""
 	else:
-		return """馃摉 **Help**
+		return """📖 **Help**
 
 **Common Commands**
-鈥?"Make a XXX game" - Generate game code
-鈥?"Add XXX feature" - Modify code
-鈥?"Find XXX assets" - Search assets
-鈥?"What is XXX" - Ask questions
-鈥?"Template" - View code templates
-鈥?"Clear" - Clear chat history
+• "Make a XXX game" - Generate game code
+• "Add XXX feature" - Modify code
+• "Find XXX assets" - Search assets
+• "What is XXX" - Ask questions
+• "Template" - View code templates
+• "Clear" - Clear chat history
 
 **Code Analysis & Optimization**
-鈥?"Explain code" - Select code then input, AI analyzes code
-鈥?"Optimize code" - Select code then input, AI provides optimization suggestions
+• "Explain code" - Select code then input, AI analyzes code
+• "Optimize code" - Select code then input, AI provides optimization suggestions
 
 **Quick Actions**
-鈥?Code Templates - Quick generate
-鈥?Asset Search - Search free assets
-鈥?AI Settings - Configure model
+• Code Templates - Quick generate
+• Asset Search - Search free assets
+• AI Settings - Configure model
 
-Feel free to ask anything! 馃悪"""
+Feel free to ask anything! 🐙"""
 
 func get_template_list() -> String:
 	var lang = config.get("language", "auto")
@@ -850,39 +901,47 @@ func get_template_list() -> String:
 		lang = "zh" if OS.get_locale_language() == "zh" else "en"
 	
 	if lang == "zh":
-		return """馃搵 **浠ｇ爜妯℃澘**
+		return """📋 **代码模板**
 
-銆?D娓告垙妯℃澘銆?鈥?鐜╁瑙掕壊 - 绉诲姩+璺宠穬
-鈥?鏁屼汉AI - 宸￠€?鏀诲嚮
-鈥?瀛愬脊绯荤粺 - 鍙戝皠+纰版挒
-鈥?UI琛€鏉?- 璺熼殢+鍔ㄧ敾
+【2D游戏模板】
+• 玩家角色 - 移动+跳跃
+• 敌人AI - 巡逻+攻击
+• 子弹系统 - 发射+碰撞
+• UI血条 - 跟随+动画
 
-銆?D娓告垙妯℃澘銆?鈥?FPS鎺у埗鍣?鈥?绗笁浜虹О瑙掕壊
-鈥?鎽勫儚鏈鸿窡闅?
-銆愮郴缁熸ā鏉裤€?鈥?瀛樻。绯荤粺
-鈥?鍟嗗簵绯荤粺
-鈥?鎴愬氨绯荤粺
+【3D游戏模板】
+• FPS控制器
+• 第三人称角色
+• 摄像机跟随
 
-杈撳叆銆岀敓鎴怷XX妯℃澘銆嶈幏鍙栦唬鐮侊紒"""
+【系统模板】
+• 存档系统
+• 商店系统
+• 成就系统
+
+输入「生成XXX模板」获取代码！"""
 	else:
-		return """馃搵 **Code Templates**
+		return """📋 **Code Templates**
 
-銆?D Game Templates銆?鈥?Player Character - Move+Jump
-鈥?Enemy AI - Patrol+Attack
-鈥?Bullet System - Fire+Collision
-鈥?UI Health Bar - Follow+Animation
+【2D Game Templates】
+• Player Character - Move+Jump
+• Enemy AI - Patrol+Attack
+• Bullet System - Fire+Collision
+• UI Health Bar - Follow+Animation
 
-銆?D Game Templates銆?鈥?FPS Controller
-鈥?Third Person Character
-鈥?Camera Follow
+【3D Game Templates】
+• FPS Controller
+• Third Person Character
+• Camera Follow
 
-銆怱ystem Templates銆?鈥?Save System
-鈥?Shop System
-鈥?Achievement System
+【System Templates】
+• Save System
+• Shop System
+• Achievement System
 
 Type "Generate XXX template" to get code!"""
 
-# 璋冪敤AI API
+# 调用AI API
 func call_ai(user_message: String) -> void:
 	_pending_user_message = user_message
 	var model_config = get_model_config()
@@ -891,13 +950,14 @@ func call_ai(user_message: String) -> void:
 	var model = model_config.get("model", "")
 	
 	if endpoint.is_empty() or model.is_empty():
-		thinking_finished.emit("鉂?璇峰厛鍦ㄨ缃腑閰嶇疆AI妯″瀷锛?)
+		thinking_finished.emit("❌ 请先在设置中配置AI模型！")
 		return
 	
-	# 鏋勫缓娑堟伅
+	# 构建消息
 	var messages = build_messages(user_message)
 	
-	# 鍙戦€佽姹?	var headers = ["Content-Type: application/json"]
+	# 发送请求
+	var headers = ["Content-Type: application/json"]
 	if not api_key.is_empty():
 		headers.append("Authorization: Bearer " + api_key)
 	
@@ -916,7 +976,7 @@ func call_ai(user_message: String) -> void:
 	)
 	
 	if error != OK:
-		thinking_finished.emit("鉂?缃戠粶璇锋眰澶辫触锛岃妫€鏌ョ綉缁滆繛鎺?)
+		thinking_finished.emit("❌ 网络请求失败，请检查网络连接")
 
 func get_model_config() -> Dictionary:
 	var cfg = {
@@ -942,7 +1002,7 @@ func get_model_config() -> Dictionary:
 	return cfg
 
 func build_messages(user_message: String) -> Array:
-	var project_path = "鏈煡"
+	var project_path = "未知"
 	var lang = config.get("language", "auto")
 	if lang == "auto":
 		lang = "zh" if OS.get_locale_language() == "zh" else "en"
@@ -954,12 +1014,13 @@ func build_messages(user_message: String) -> Array:
 	var system = get_system_prompt().format({"project_path": project_path})
 	var messages: Array = [{"role": "system", "content": system}]
 	
-	# 娣诲姞鍘嗗彶锛堟渶杩?0杞級
+	# 添加历史（最近10轮）
 	var history_limit = min(conversation_history.size(), 20)
 	for i in range(history_limit):
 		messages.append(conversation_history[i])
 	
-	# 娣诲姞鏂版秷鎭?	messages.append({"role": "user", "content": user_message})
+	# 添加新消息
+	messages.append({"role": "user", "content": user_message})
 	
 	return messages
 
@@ -970,63 +1031,66 @@ func extract_response(json: Dictionary) -> String:
 		var choices = json["choices"]
 		if choices is Array and choices.size() > 0:
 			return choices[0].get("message", {}).get("content", "")
-	return "鏃犳硶瑙ｆ瀽鍝嶅簲"
+	return "无法解析响应"
 
-# ==================== 娴嬭瘯鐢熸垚鍔熻兘 ====================
+# ==================== 测试生成功能 ====================
 
 signal test_generation_requested(target_file: String, test_framework: String)
 signal diff_requested(original_code: String, new_code: String, file_path: String)
 
-const TEST_COMMANDS = ["鐢熸垚娴嬭瘯", "鍐欏崟鍏冩祴璇?, "鍗曞厓娴嬭瘯", "鍐欐祴璇?, "娴嬭瘯浠ｇ爜", "create test"]
+const TEST_COMMANDS = ["生成测试", "写单元测试", "单元测试", "写测试", "测试代码", "create test"]
 
 func generate_tests(target_file: String = "", framework: String = "gdunit") -> String:
-	"""鐢熸垚娴嬭瘯浠ｇ爜
+	"""生成测试代码
 	
 	Args:
-		target_file: 鐩爣鏂囦欢璺緞锛堝彲閫夛級
-		framework: 娴嬭瘯妗嗘灦 (gdunit/nunit)
+		target_file: 目标文件路径（可选）
+		framework: 测试框架 (gdunit/nunit)
 	"""
 	var message = ""
 	
 	if not target_file.is_empty():
-		message = "涓轰互涓嬫枃浠剁敓鎴愬崟鍏冩祴璇曪細\n" + target_file + "\n浣跨敤 " + framework + " 妗嗘灦"
+		message = "为以下文件生成单元测试：\n" + target_file + "\n使用 " + framework + " 框架"
 	else:
-		message = "璇峰憡璇夋垜瑕佷负鍝釜鏂囦欢鐢熸垚娴嬭瘯锛焅n\n鏀寔鐨勬祴璇曟鏋讹細\n鈥?GdUnit - Godot 鍗曞厓娴嬭瘯\n鈥?NUnit - Unity 鍗曞厓娴嬭瘯\n\n鍛戒护鏍煎紡锛氥€屼负 Player.gd 鐢熸垚娴嬭瘯銆?
+		message = "请告诉我要为哪个文件生成测试？\n\n支持的测试框架：\n• GdUnit - Godot 单元测试\n• NUnit - Unity 单元测试\n\n命令格式：「为 Player.gd 生成测试」"
 	
 	return message
 
 func request_test_generation(target_file: String, test_framework: String = "gdunit") -> void:
-	"""瑙﹀彂娴嬭瘯鐢熸垚淇″彿"""
+	"""触发测试生成信号"""
 	test_generation_requested.emit(target_file, test_framework)
 
-# ==================== 宸紓瀵规瘮鍔熻兘 ====================
+# ==================== 差异对比功能 ====================
 
 var original_code_cache: Dictionary = {}
 
 func show_diff(original_code: String, new_code: String, file_path: String = "") -> String:
-	"""鏄剧ず浠ｇ爜宸紓
+	"""显示代码差异
 	
 	Args:
-		original_code: 鍘熷浠ｇ爜
-		new_code: 鏂颁唬鐮?		file_path: 鏂囦欢璺緞
+		original_code: 原始代码
+		new_code: 新代码
+		file_path: 文件路径
 	
 	Returns:
-		鏍煎紡鍖栫殑diff瀛楃涓?	"""
-	# 缂撳瓨鍘熷浠ｇ爜
+		格式化的diff字符串
+	"""
+	# 缓存原始代码
 	if not file_path.is_empty():
 		original_code_cache[file_path] = original_code
 	
 	return format_diff(original_code, new_code, file_path)
 
 func format_diff(original: String, new_code: String, file_path: String = "") -> String:
-	"""鏍煎紡鍖杁iff杈撳嚭"""
+	"""格式化diff输出"""
 	var lines: Array = []
 	
-	# 鏂囦欢澶?	if not file_path.is_empty():
-		lines.append("馃搫 鏂囦欢: " + file_path)
-		lines.append("鈹?.repeat(40))
+	# 文件头
+	if not file_path.is_empty():
+		lines.append("📄 文件: " + file_path)
+		lines.append("━".repeat(40))
 	
-	# 浣跨敤绠€鍗曡瀵规瘮
+	# 使用简单行对比
 	var old_lines = original.split("\n")
 	var new_lines = new_code.split("\n")
 	
@@ -1034,7 +1098,7 @@ func format_diff(original: String, new_code: String, file_path: String = "") -> 
 	var deletions = 0
 	var unchanged = 0
 	
-	# 缁熻鍙樺寲
+	# 统计变化
 	for new_line in new_lines:
 		if not old_lines.has(new_line):
 			additions += 1
@@ -1043,18 +1107,19 @@ func format_diff(original: String, new_code: String, file_path: String = "") -> 
 		if not new_lines.has(old_line):
 			deletions += 1
 	
-	# 鐢熸垚缁熶竴鏍煎紡diff
-	lines.append("\n馃搳 宸紓缁熻:")
-	lines.append("   鉃?鏂板: " + str(additions) + " 琛?)
-	lines.append("   鉃?鍒犻櫎: " + str(deletions) + " 琛?)
+	# 生成统一格式diff
+	lines.append("\n📊 差异统计:")
+	lines.append("   ➕ 新增: " + str(additions) + " 行")
+	lines.append("   ➖ 删除: " + str(deletions) + " 行")
 	
-	lines.append("\n" + "鈹?.repeat(40))
-	lines.append("馃摑 璇︾粏鍙樻洿:")
-	lines.append("鈹?.repeat(40))
+	lines.append("\n" + "━".repeat(40))
+	lines.append("📝 详细变更:")
+	lines.append("━".repeat(40))
 	
-	# 閫愯瀵规瘮
+	# 逐行对比
 	var max_lines = max(old_lines.size(), new_lines.size())
-	var context = 3  # 涓婁笅鏂囪鏁?	
+	var context = 3  # 上下文行数
+	
 	for i in range(max_lines):
 		var old_line_text = old_lines[i] if i < old_lines.size() else null
 		var new_line_text = new_lines[i] if i < new_lines.size() else null
@@ -1069,22 +1134,25 @@ func format_diff(original: String, new_code: String, file_path: String = "") -> 
 			if new_line_text != null:
 				lines.append("+" + new_line_text)
 	
-	lines.append("鈹?.repeat(40))
+	lines.append("━".repeat(40))
 	
-	# 鎿嶄綔寤鸿
-	lines.append("\n馃挕 鎿嶄綔閫夐」:")
-	lines.append("鈥?銆屾帴鍙椼€嶆垨銆岀‘璁ゃ€? 搴旂敤姝や慨鏀?)
-	lines.append("鈥?銆屽彇娑堛€? 鏀惧純姝や慨鏀?)
-	lines.append("鈥?銆岄€愬潡纭銆? 閫愪釜鎺ュ彈鍙樻洿鍧?)
+	# 操作建议
+	lines.append("\n💡 操作选项:")
+	lines.append("• 「接受」或「确认」- 应用此修改")
+	lines.append("• 「取消」- 放弃此修改")
+	lines.append("• 「逐块确认」- 逐个接受变更块")
 	
 	return "\n".join(lines)
 
 func get_diff_chunk(original: String, new_code: String, start_line: int, count: int) -> Dictionary:
-	"""鑾峰彇鎸囧畾鑼冨洿鐨刣iff鍧?	
+	"""获取指定范围的diff块
+	
 	Args:
-		original: 鍘熷浠ｇ爜
-		new_code: 鏂颁唬鐮?		start_line: 璧峰琛屽彿
-		count: 鍧楀ぇ灏?	
+		original: 原始代码
+		new_code: 新代码
+		start_line: 起始行号
+		count: 块大小
+	
 	Returns:
 		Dictionary with 'added', 'removed', 'unchanged' arrays
 	"""
@@ -1116,12 +1184,14 @@ func get_diff_chunk(original: String, new_code: String, start_line: int, count: 
 	return result
 
 func apply_diff_chunk(file_path: String, chunk: Dictionary) -> bool:
-	"""搴旂敤鍗曚釜diff鍧?	
+	"""应用单个diff块
+	
 	Args:
-		file_path: 鏂囦欢璺緞
-		chunk: diff鍧?	
+		file_path: 文件路径
+		chunk: diff块
+	
 	Returns:
-		鏄惁鎴愬姛
+		是否成功
 	"""
 	if not FileAccess.file_exists(file_path):
 		return false
@@ -1133,21 +1203,23 @@ func apply_diff_chunk(file_path: String, chunk: Dictionary) -> bool:
 	var content = file.get_as_text()
 	file.close()
 	
-	# 搴旂敤鍙樻洿
-	# 杩欓噷绠€鍖栧鐞嗭紝瀹為檯搴旇鏇寸簿纭?	return true
+	# 应用变更
+	# 这里简化处理，实际应该更精确
+	return true
 
-# ==================== 鍘熸湁鍔熻兘 ====================
+# ==================== 原有功能 ====================
 
-# 鍋滄澶勭悊
+# 停止处理
 func cancel():
 	if is_processing:
 		http_request.cancel_request()
 		is_processing = false
-		emit_signal("thinking_finished", "宸插彇娑?)
+		emit_signal("thinking_finished", "已取消")
 
-# ==================== Git闆嗘垚鍔熻兘 ====================
+# ==================== Git集成功能 ====================
 
-# Git鐘舵€?func git_status() -> Dictionary:
+# Git状态
+func git_status() -> Dictionary:
 	var output = []
 	var result = OS.execute("git", ["status", "--porcelain"], output, true)
 	
@@ -1174,7 +1246,7 @@ func cancel():
 	
 	return status_data
 
-# 鑾峰彇Git鍙樻洿缁熻
+# 获取Git变更统计
 func git_diff_stats() -> String:
 	var output = []
 	var result = OS.execute("git", ["diff", "--stat"], output, true)
@@ -1183,7 +1255,7 @@ func git_diff_stats() -> String:
 		return output[0]
 	return ""
 
-# 鐢熸垚鎻愪氦淇℃伅
+# 生成提交信息
 func generate_commit_message() -> String:
 	var status = git_status()
 	var diff_stats = git_diff_stats()
@@ -1194,61 +1266,61 @@ func generate_commit_message() -> String:
 	
 	var changes_summary = ""
 	if status["modified"].size() > 0:
-		changes_summary += "淇敼: " + str(status["modified"].size()) + "涓枃浠禱n"
+		changes_summary += "修改: " + str(status["modified"].size()) + "个文件\n"
 	if status["staged"].size() > 0:
-		changes_summary += "鏂板: " + str(status["staged"].size()) + "涓枃浠禱n"
+		changes_summary += "新增: " + str(status["staged"].size()) + "个文件\n"
 	if status["untracked"].size() > 0:
-		changes_summary += "鏈窡韪? " + str(status["untracked"].size()) + "涓枃浠禱n"
+		changes_summary += "未跟踪: " + str(status["untracked"].size()) + "个文件\n"
 	
-	return """馃摑 **鎻愪氦淇℃伅寤鸿**
+	return """📝 **提交信息建议**
 
-**鍙樻洿缁熻**
+**变更统计**
 %s
-**diff缁熻**
+**diff统计**
 ```
 %s
 ```
 
-馃挕 杈撳叆銆岀‘璁ゆ彁浜ゃ€嶅畬鎴愭彁浜わ紝鎴栦慨鏀逛笂杩颁俊鎭悗銆岀‘璁ゆ彁浜ゃ€?""
+💡 输入「确认提交」完成提交，或修改上述信息后「确认提交」"""
 
-# Git鎻愪氦
+# Git提交
 func git_commit(message: String = "") -> Dictionary:
 	var result_data = {
 		"success": false,
 		"message": ""
 	}
 	
-	# 妫€鏌ユ槸鍚︽湁鍙樻洿
+	# 检查是否有变更
 	var status = git_status()
 	var total_changes = status["modified"].size() + status["staged"].size() + status["untracked"].size()
 	
 	if total_changes == 0:
-		result_data["message"] = "鈿狅笍 娌℃湁鍙彁浜ょ殑鍐呭"
+		result_data["message"] = "⚠️ 没有可提交的内容"
 		return result_data
 	
-	# 濡傛灉娌℃湁鎻愪緵鎻愪氦淇℃伅锛屽厛妫€鏌ユ殏瀛樺尯
+	# 如果没有提供提交信息，先检查暂存区
 	if message.is_empty():
 		var staged_output = []
 		OS.execute("git", ["diff", "--cached", "--stat"], staged_output, true)
 		if staged_output.size() > 0 and not staged_output[0].is_empty():
-			result_data["message"] = "馃搵 妫€娴嬪埌宸叉殏瀛樼殑鍙樻洿:\n" + staged_output[0] + "\n\n璇锋彁渚涙彁浜や俊鎭?
+			result_data["message"] = "📋 检测到已暂存的变更:\n" + staged_output[0] + "\n\n请提供提交信息"
 		else:
-			result_data["message"] = "馃搵 璇峰厛浣跨敤銆屾殏瀛樻枃浠躲€嶆垨銆屾坊鍔犳墍鏈夈€嶅悗鍐嶆彁浜?
+			result_data["message"] = "📋 请先使用「暂存文件」或「添加所有」后再提交"
 		return result_data
 	
-	# 鎵ц鎻愪氦
+	# 执行提交
 	var output = []
 	var result = OS.execute("git", ["commit", "-m", message], output, true)
 	
 	if result == 0:
 		result_data["success"] = true
-		result_data["message"] = "鉁?鎻愪氦鎴愬姛!\n\n" + message
+		result_data["message"] = "✅ 提交成功!\n\n" + message
 	else:
-		result_data["message"] = "鉂?鎻愪氦澶辫触: " + (output[0] if output.size() > 0 else "鏈煡閿欒")
+		result_data["message"] = "❌ 提交失败: " + (output[0] if output.size() > 0 else "未知错误")
 	
 	return result_data
 
-# Git鏆傚瓨鏂囦欢
+# Git暂存文件
 func git_add(files: Array = []) -> Dictionary:
 	var result_data = {
 		"success": false,
@@ -1259,30 +1331,31 @@ func git_add(files: Array = []) -> Dictionary:
 	var args = ["add"]
 	
 	if files.is_empty():
-		args.append("-A")  # 娣诲姞鎵€鏈?	else:
+		args.append("-A")  # 添加所有
+	else:
 		args.append_array(files)
 	
 	var result = OS.execute("git", args, output, true)
 	
 	if result == 0:
 		result_data["success"] = true
-		result_data["message"] = "鉁?鏂囦欢宸叉殏瀛榎n\n" + (output[0] if output.size() > 0 else "")
+		result_data["message"] = "✅ 文件已暂存\n\n" + (output[0] if output.size() > 0 else "")
 	else:
-		result_data["message"] = "鉂?鏆傚瓨澶辫触: " + (output[0] if output.size() > 0 else "鏈煡閿欒")
+		result_data["message"] = "❌ 暂存失败: " + (output[0] if output.size() > 0 else "未知错误")
 	
 	return result_data
 
-# Git鍘嗗彶
+# Git历史
 func git_log(limit: int = 10) -> String:
 	var output = []
 	var result = OS.execute("git", ["log", "--oneline", "--graph", "--decorate", "-n", str(limit)], output, true)
 	
 	if result == 0 and output.size() > 0:
-		return "馃摐 **鎻愪氦鍘嗗彶**\n\n```\n" + output[0] + "```"
+		return "📜 **提交历史**\n\n```\n" + output[0] + "```"
 	else:
-		return "鈿狅笍 鏃犳硶鑾峰彇鎻愪氦鍘嗗彶"
+		return "⚠️ 无法获取提交历史"
 	
-# 鑾峰彇鍒嗘敮淇℃伅
+# 获取分支信息
 func git_branch() -> Dictionary:
 	var output = []
 	var result = OS.execute("git", ["branch", "-v"], output, true)
@@ -1302,28 +1375,30 @@ func git_branch() -> Dictionary:
 	
 	return branch_data
 
-# Git鎷夊彇
+# Git拉取
 func git_pull() -> Dictionary:
 	var output = []
 	var result = OS.execute("git", ["pull"], output, true)
 	
 	return {
 		"success": result == 0,
-		"message": (output[0] if output.size() > 0 else "") if result == 0 else ("鉂?鎷夊彇澶辫触: " + (output[0] if output.size() > 0 else ""))
+		"message": (output[0] if output.size() > 0 else "") if result == 0 else ("❌ 拉取失败: " + (output[0] if output.size() > 0 else ""))
 	}
 
-# Git鎺ㄩ€?func git_push() -> Dictionary:
+# Git推送
+func git_push() -> Dictionary:
 	var output = []
 	var result = OS.execute("git", ["push"], output, true)
 	
 	return {
 		"success": result == 0,
-		"message": (output[0] if output.size() > 0 else "") if result == 0 else ("鉂?鎺ㄩ€佸け璐? " + (output[0] if output.size() > 0 else ""))
+		"message": (output[0] if output.size() > 0 else "") if result == 0 else ("❌ 推送失败: " + (output[0] if output.size() > 0 else ""))
 	}
 
-# ==================== 澶氱鍚屾鍔熻兘 ====================
+# ==================== 多端同步功能 ====================
 
-# 鍚屾閰嶇疆鍒颁簯绔?func sync_config(sync_type: String = "all") -> Dictionary:
+# 同步配置到云端
+func sync_config(sync_type: String = "all") -> Dictionary:
 	var sync_result = {
 		"success": false,
 		"message": "",
@@ -1335,10 +1410,10 @@ func git_pull() -> Dictionary:
 	var sync_url = cfg.get("webdav_url", "")
 	
 	if not sync_enabled or sync_url.is_empty():
-		sync_result["message"] = "鈿狅笍 鍚屾鏈厤缃紝璇峰湪璁剧疆涓厤缃悓姝ユ湇鍔?
+		sync_result["message"] = "⚠️ 同步未配置，请在设置中配置同步服务"
 		return sync_result
 	
-	# 鍑嗗鍚屾鏁版嵁
+	# 准备同步数据
 	var sync_data = {
 		"timestamp": Time.get_datetime_string_from_system(),
 		"version": "1.0",
@@ -1347,31 +1422,35 @@ func git_pull() -> Dictionary:
 		"shortcuts": {}
 	}
 	
-	# 鍚屾璁剧疆
+	# 同步设置
 	if sync_type == "all" or sync_type == "settings":
 		sync_data["config"] = _get_syncable_config()
-		sync_result["synced_items"].append("璁剧疆")
+		sync_result["synced_items"].append("设置")
 	
-	# 鍚屾鐭ヨ瘑搴?	if sync_type == "all" or sync_type == "knowledge":
+	# 同步知识库
+	if sync_type == "all" or sync_type == "knowledge":
 		sync_data["knowledge"] = _get_knowledge_data()
-		sync_result["synced_items"].append("鐭ヨ瘑搴?)
+		sync_result["synced_items"].append("知识库")
 	
-	# 鍚屾蹇嵎閿?	if sync_type == "all" or sync_type == "shortcuts":
+	# 同步快捷键
+	if sync_type == "all" or sync_type == "shortcuts":
 		sync_data["shortcuts"] = _get_shortcuts_data()
-		sync_result["synced_items"].append("蹇嵎閿厤缃?)
+		sync_result["synced_items"].append("快捷键配置")
 	
-	# 涓婁紶鍒颁簯绔?	var json_data = JSON.stringify(sync_data)
+	# 上传到云端
+	var json_data = JSON.stringify(sync_data)
 	var result = _upload_to_webdav(sync_url, json_data)
 	
 	if result["success"]:
 		sync_result["success"] = true
-		sync_result["message"] = "鉁?鍚屾鎴愬姛!\n\n宸插悓姝? " + ", ".join(sync_result["synced_items"])
+		sync_result["message"] = "✅ 同步成功!\n\n已同步: " + ", ".join(sync_result["synced_items"])
 	else:
-		sync_result["message"] = "鉂?鍚屾澶辫触: " + result.get("error", "鏈煡閿欒")
+		sync_result["message"] = "❌ 同步失败: " + result.get("error", "未知错误")
 	
 	return sync_result
 
-# 浠庝簯绔仮澶嶉厤缃?func restore_config() -> Dictionary:
+# 从云端恢复配置
+func restore_config() -> Dictionary:
 	var restore_result = {
 		"success": false,
 		"message": "",
@@ -1382,39 +1461,41 @@ func git_pull() -> Dictionary:
 	var sync_url = cfg.get("webdav_url", "")
 	
 	if sync_url.is_empty():
-		restore_result["message"] = "鈿狅笍 鏈厤缃悓姝ユ湇鍔?
+		restore_result["message"] = "⚠️ 未配置同步服务"
 		return restore_result
 	
 	var result = _download_from_webdav(sync_url)
 	
 	if not result["success"]:
-		restore_result["message"] = "鉂?涓嬭浇澶辫触: " + result.get("error", "鏈煡閿欒")
+		restore_result["message"] = "❌ 下载失败: " + result.get("error", "未知错误")
 		return restore_result
 	
 	var sync_data = JSON.parse_string(result["data"])
 	if not sync_data:
-		restore_result["message"] = "鉂?瑙ｆ瀽浜戠鏁版嵁澶辫触"
+		restore_result["message"] = "❌ 解析云端数据失败"
 		return restore_result
 	
-	# 鎭㈠璁剧疆
+	# 恢复设置
 	if sync_data.has("config") and sync_data["config"].size() > 0:
 		_apply_config(sync_data["config"])
-		restore_result["restored_items"].append("璁剧疆")
+		restore_result["restored_items"].append("设置")
 	
-	# 鎭㈠鐭ヨ瘑搴?	if sync_data.has("knowledge") and sync_data["knowledge"].size() > 0:
+	# 恢复知识库
+	if sync_data.has("knowledge") and sync_data["knowledge"].size() > 0:
 		_apply_knowledge(sync_data["knowledge"])
-		restore_result["restored_items"].append("鐭ヨ瘑搴?)
+		restore_result["restored_items"].append("知识库")
 	
-	# 鎭㈠蹇嵎閿?	if sync_data.has("shortcuts") and sync_data["shortcuts"].size() > 0:
+	# 恢复快捷键
+	if sync_data.has("shortcuts") and sync_data["shortcuts"].size() > 0:
 		_apply_shortcuts(sync_data["shortcuts"])
-		restore_result["restored_items"].append("蹇嵎閿厤缃?)
+		restore_result["restored_items"].append("快捷键配置")
 	
 	restore_result["success"] = true
-	restore_result["message"] = "鉁?鎭㈠鎴愬姛!\n\n宸叉仮澶? " + ", ".join(restore_result["restored_items"])
+	restore_result["message"] = "✅ 恢复成功!\n\n已恢复: " + ", ".join(restore_result["restored_items"])
 	
 	return restore_result
 
-# 鑾峰彇鍙悓姝ョ殑閰嶇疆
+# 获取可同步的配置
 func _get_syncable_config() -> Dictionary:
 	var syncable = {
 		"model_type": config.get("model_type", ""),
@@ -1426,32 +1507,37 @@ func _get_syncable_config() -> Dictionary:
 	}
 	return syncable
 
-# 鑾峰彇鐭ヨ瘑搴撴暟鎹?func _get_knowledge_data() -> Array:
+# 获取知识库数据
+func _get_knowledge_data() -> Array:
 	var knowledge_data: Array = []
 	var kb = get_node_or_null("/root/KnowledgeBase")
 	if kb and kb.has_method("get_all_entries"):
 		knowledge_data = kb.get_all_entries()
 	return knowledge_data
 
-# 鑾峰彇蹇嵎閿厤缃?func _get_shortcuts_data() -> Dictionary:
-	# 浠庨」鐩缃幏鍙栧揩鎹烽敭
+# 获取快捷键配置
+func _get_shortcuts_data() -> Dictionary:
+	# 从项目设置获取快捷键
 	var shortcuts: Dictionary = {}
-	# 杩欓噷绠€鍖栧鐞嗭紝瀹為檯鍙互浠嶶I閰嶇疆璇诲彇
+	# 这里简化处理，实际可以从UI配置读取
 	return shortcuts
 
-# 搴旂敤閰嶇疆
+# 应用配置
 func _apply_config(cfg: Dictionary) -> void:
 	config.merge(cfg, true)
 
-# 搴旂敤鐭ヨ瘑搴?func _apply_knowledge(entries: Array) -> void:
+# 应用知识库
+func _apply_knowledge(entries: Array) -> void:
 	var kb = get_node_or_null("/root/KnowledgeBase")
 	if kb and kb.has_method("batch_import"):
 		kb.batch_import(entries)
 
-# 搴旂敤蹇嵎閿?func _apply_shortcuts(shortcuts: Dictionary) -> void:
-	# 搴旂敤蹇嵎閿厤缃?	pass
+# 应用快捷键
+func _apply_shortcuts(shortcuts: Dictionary) -> void:
+	# 应用快捷键配置
+	pass
 
-# 涓婁紶鍒癢ebDAV
+# 上传到WebDAV
 func _upload_to_webdav(url: String, data: String) -> Dictionary:
 	var result = {"success": false, "error": ""}
 	
@@ -1468,16 +1554,16 @@ func _upload_to_webdav(url: String, data: String) -> Dictionary:
 		if exec_result == 0:
 			result["success"] = true
 		else:
-			result["error"] = output[0] if output.size() > 0 else "涓婁紶澶辫触"
+			result["error"] = output[0] if output.size() > 0 else "上传失败"
 		
-		# 鍒犻櫎涓存椂鏂囦欢
+		# 删除临时文件
 		DirAccess.remove_absolute(temp_file)
 	else:
-		result["error"] = "鏃犳硶鍒涘缓涓存椂鏂囦欢"
+		result["error"] = "无法创建临时文件"
 	
 	return result
 
-# 浠嶹ebDAV涓嬭浇
+# 从WebDAV下载
 func _download_from_webdav(url: String) -> Dictionary:
 	var result = {"success": false, "error": "", "data": ""}
 	
@@ -1494,11 +1580,12 @@ func _download_from_webdav(url: String) -> Dictionary:
 			file.close()
 		DirAccess.remove_absolute(temp_file)
 	else:
-		result["error"] = output[0] if output.size() > 0 else "涓嬭浇澶辫触"
+		result["error"] = output[0] if output.size() > 0 else "下载失败"
 	
 	return result
 
-# 鑾峰彇鍚屾鐘舵€?func get_sync_status() -> Dictionary:
+# 获取同步状态
+func get_sync_status() -> Dictionary:
 	var cfg = config.get("sync_config", {})
 	var enabled = cfg.get("enabled", false)
 	var last_sync = cfg.get("last_sync", "")
@@ -1508,6 +1595,5 @@ func _download_from_webdav(url: String) -> Dictionary:
 		"enabled": enabled,
 		"last_sync": last_sync,
 		"configured": not sync_url.is_empty(),
-		"sync_type": cfg.get("type", "webdav")  # webdav 鎴?api
+		"sync_type": cfg.get("type", "webdav")  # webdav 或 api
 	}
-

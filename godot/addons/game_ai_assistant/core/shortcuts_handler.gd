@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 # 快捷键管理器 - 全局快捷键支持
 # Phase 4 功能

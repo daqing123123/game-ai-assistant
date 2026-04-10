@@ -1,4 +1,4 @@
-extends RefCounted
+﻿extends RefCounted
 
 # 配置管理器
 # 管理AI模型配置、本地存储
@@ -321,6 +321,7 @@ func get_system_info() -> Dictionary:
 	return {
 		"os": OS.get_name(),
 		"locale": OS.get_locale_language(),
+		"driver_name": "unknown",
 		"current_memory": OS.get_static_memory_usage() / 1024 / 1024,  # MB
 		"available_memory": OS.get_memory_info().available / 1024 / 1024  # MB
 	}

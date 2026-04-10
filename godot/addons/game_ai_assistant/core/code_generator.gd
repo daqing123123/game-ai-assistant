@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 # 代码生成器
 # 根据AI响应生成游戏代码
@@ -112,7 +112,7 @@ func generate_file_name(code: String, language: String) -> String:
 	# 尝试从代码中提取类名
 	var extracted_class = extract_class_name(code, language)
 	if not extracted_class.is_empty():
-		return extracted_class + "." + ext
+		return class_name + "." + ext
 	
 	# 默认文件名
 	return "generated_script." + ext
@@ -227,8 +227,8 @@ func generate_test_file_name(target_file: String, extension: String) -> String:
 	
 	if not target_file.is_empty():
 		# 从目标文件提取类名
-		var class_name = extract_class_name_from_path(target_file)
-		if not class_name.is_empty():
+		var extracted_class = extract_class_name_from_path(target_file)
+		if not extracted_class.is_empty():
 			base_name += class_name + "_"
 		else:
 			# 使用文件名
@@ -270,7 +270,7 @@ func extract_class_name_from_path(file_path: String) -> String:
 
 func _generate_gdunit_test(target_code: String, target_file: String) -> String:
 	"""生成 GdUnit 测试代码"""
-	var class_name = extract_class_name(target_code, "gdscript")
+	var extracted_class = extract_class_name(target_code, "gdscript")
 	var test_cases = _analyze_functions(target_code, "gdscript")
 	
 	var test_template = """
@@ -344,7 +344,7 @@ func test_{func_name}():
 
 func _generate_nunit_test(target_code: String, target_file: String) -> String:
 	"""生成 NUnit 测试代码"""
-	var class_name = extract_class_name(target_code, "csharp")
+	var extracted_class = extract_class_name(target_code, "csharp")
 	var test_cases = _analyze_functions(target_code, "csharp")
 	var namespace = _extract_namespace(target_code)
 	
@@ -1113,7 +1113,7 @@ func _ready() -> void:
 	level_complete_screen.visible = false
 	
 	# 连接信号
-	var game_manager = get_node_or_valid("/root/GameManager")
+	var game_manager = get_node_or_null("/root/GameManager")
 	if game_manager:
 		game_manager.score_changed.connect(_on_score_changed)
 		game_manager.lives_changed.connect(_on_lives_changed)

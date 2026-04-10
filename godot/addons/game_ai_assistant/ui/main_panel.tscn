@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://main_panel_001"]
+[gd_scene load_steps=2 format=3 uid="uid://main_panel_001"]
 
 [ext_resource type="Script" path="res://addons/game_ai_assistant/ui/main_panel.gd" id="1"]
-[ext_resource type="PackedScene" uid="uid://config_dialog_001" path="res://addons/game_ai_assistant/ui/config_dialog.tscn" id="2"]
 
 [node name="MainPanel" type="PanelContainer"]
 anchors_preset = 15
@@ -11,71 +10,46 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="Margin" type="MarginContainer" parent="."]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
-
-[node name="VBox" type="VBoxContainer" parent="Margin"]
+# ============ 主容器 ============
+[node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 2
 
+# ============ 顶部标题栏 ============
 [node name="Header" type="PanelContainer" parent="Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_vertical = 0
 
 [node name="HBox" type="HBoxContainer" parent="Margin/VBox/Header"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+
+[node name="Icon" type="Label" parent="Margin/VBox/Header/HBox"]
+layout_mode = 2
+text = "🐙"
+horizontal_alignment = 1
 
 [node name="Title" type="Label" parent="Margin/VBox/Header/HBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "🐙 Game AI Assistant v1.4"
+text = "Game AI Assistant"
 horizontal_alignment = 1
 
-[node name="ConfigBtn" type="Button" parent="Margin/VBox/Header/HBox"]
-layout_mode = 2
-text = "⚙️"
-
-[node name="StatusBar" type="PanelContainer" parent="Margin/VBox"]
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
-size_flags_vertical = 0
-
-[node name="HBox" type="HBoxContainer" parent="Margin/VBox/StatusBar"]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_right = 10
-
-[node name="StatusIcon" type="Label" parent="Margin/VBox/StatusBar/HBox"]
+[node name="StatusIcon" type="Label" parent="Margin/VBox/Header/HBox"]
 layout_mode = 2
 text = "⏸️"
 
-[node name="StatusText" type="Label" parent="Margin/VBox/StatusBar/HBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "就绪"
-
-[node name="HistoryLabel" type="Label" parent="Margin/VBox/StatusBar/HBox"]
-layout_mode = 2
-text = "↩️0 ↪️0"
-
-[node name="PendingLabel" type="Label" parent="Margin/VBox/StatusBar/HBox"]
-layout_mode = 2
-text = ""
-
-[node name="ModelLabel" type="Label" parent="Margin/VBox/StatusBar/HBox"]
+[node name="ModelLabel" type="Label" parent="Margin/VBox/Header/HBox"]
 layout_mode = 2
 text = "未配置"
+horizontal_alignment = 2
 
-[node name="Separator1" type="HSeparator" parent="Margin/VBox"]
+[node name="ConfigBtn" type="Button" parent="Margin/VBox/Header/HBox"]
 layout_mode = 2
+text = "⚙️ 配置"
 
+# ============ 对话区域 ============
 [node name="ChatScroll" type="ScrollContainer" parent="Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -86,128 +60,81 @@ horizontal_scroll_mode = 0
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="WelcomeMsg" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer"]
-layout_mode = 2
-text = "🐙 你好！我是游戏开发AI助手 v1.4
-
-我可以帮你：
-• 生成游戏代码
-• 修改现有代码
-• 搜索免费素材
-• 解答开发问题
-• 每日学习新技术
-• 管理知识库
-• 撤销/重做操作
-
-📋 新功能：代码预览和确认机制
-
-📚 输入「今日学习」开始学习
-📖 输入「知识库」查看知识
-↩️ 输入「撤销」回退操作"
-
-[node name="Separator2" type="HSeparator" parent="Margin/VBox"]
-layout_mode = 2
-
-[node name="InputArea" type="PanelContainer" parent="Margin/VBox"]
-custom_minimum_size = Vector2(0, 100)
-layout_mode = 2
-size_flags_vertical = 0
-
-[node name="HBox" type="HBoxContainer" parent="Margin/VBox/InputArea"]
-layout_mode = 2
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 5
-theme_override_constants/margin_bottom = 5
-
-[node name="InputScroll" type="ScrollContainer" parent="Margin/VBox/InputArea/HBox"]
+[node name="WelcomeMsg" type="VBoxContainer" parent="Margin/VBox/ChatScroll/ChatContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Input" type="TextEdit" parent="Margin/VBox/InputArea/HBox/InputScroll"]
+[node name="WelcomeTitle" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "👋 你好！我是游戏开发AI助手"
+
+[node name="WelcomeDesc" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "输入你的问题，我会帮你做游戏"
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="HSeparator" type="HSeparator" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg"]
+layout_mode = 2
+
+[node name="QuickTips" type="VBoxContainer" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg"]
+layout_mode = 2
+
+[node name="Tip1" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg/QuickTips"]
+layout_mode = 2
+text = "💡 试试说：写个玩家跳跃脚本"
+
+[node name="Tip2" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg/QuickTips"]
+layout_mode = 2
+text = "💡 试试说：帮我找个2D平台游戏素材"
+
+[node name="Tip3" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg/QuickTips"]
+layout_mode = 2
+text = "💡 先点右上角 ⚙️ 配置 AI 模型（DeepSeek免费）"
+
+[node name="Tip4" type="Label" parent="Margin/VBox/ChatScroll/ChatContainer/WelcomeMsg/QuickTips"]
+layout_mode = 2
+text = "💡 输入「帮助」查看所有功能"
+
+# ============ 输入区 ============
+[node name="InputPanel" type="PanelContainer" parent="Margin/VBox"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="VBox" type="VBoxContainer" parent="Margin/VBox/InputPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Input" type="TextEdit" parent="Margin/VBox/InputPanel/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-placeholder_text = "输入你的问题... (Enter发送, Shift+Enter换行)"
+placeholder_text = "输入问题，按 Enter 发送..."
 wrap_mode = 1
-text_overrun_behavior = 3
 
-[node name="VBox" type="VBoxContainer" parent="Margin/VBox/InputArea/HBox"]
-layout_mode = 2
-size_flags_vertical = 4
-
-[node name="SendBtn" type="Button" parent="Margin/VBox/InputArea/HBox/VBox"]
-layout_mode = 2
-text = "发送"
-
-[node name="HBox" type="HBoxContainer" parent="Margin/VBox/InputArea/HBox/VBox"]
+[node name="HBox" type="HBoxContainer" parent="Margin/VBox/InputPanel/VBox"]
 layout_mode = 2
 size_flags_vertical = 0
 
-[node name="UndoBtn" type="Button" parent="Margin/VBox/InputArea/HBox/VBox/HBox"]
+[node name="SendBtn" type="Button" parent="Margin/VBox/InputPanel/VBox/HBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "↩️"
+text = "发送 🚀"
 
-[node name="RedoBtn" type="Button" parent="Margin/VBox/InputArea/HBox/VBox/HBox"]
+[node name="ClearBtn" type="Button" parent="Margin/VBox/InputPanel/VBox/HBox"]
 layout_mode = 2
-size_flags_horizontal = 3
-text = "↪️"
+text = "清空"
 
-[node name="ClearBtn" type="Button" parent="Margin/VBox/InputArea/HBox/VBox"]
+[node name="UndoBtn" type="Button" parent="Margin/VBox/InputPanel/VBox/HBox"]
 layout_mode = 2
-text = "清除"
+text = "↩️ 撤销"
 
-[node name="HBox2" type="HBoxContainer" parent="Margin/VBox/InputArea/HBox/VBox"]
+[node name="ApplyBtn" type="Button" parent="Margin/VBox/InputPanel/VBox/HBox"]
 layout_mode = 2
-size_flags_vertical = 0
-
-[node name="PreviewBtn" type="Button" parent="Margin/VBox/InputArea/HBox/VBox/HBox2"]
-layout_mode = 2
-size_flags_horizontal = 3
 disabled = true
-text = "👁️"
-
-[node name="ApplyBtn" type="Button" parent="Margin/VBox/InputArea/HBox/VBox/HBox2"]
-layout_mode = 2
-size_flags_horizontal = 3
-disabled = true
-text = "✅"
-
-[node name="BottomBar" type="HBoxContainer" parent="Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 0
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_right = 5
-
-[node name="TemplatesBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "📋 模板"
-
-[node name="AssetsBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "🎨 素材"
-
-[node name="ProjectBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "📂 项目"
-
-[node name="LearningBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "📚 学习"
-
-[node name="KnowledgeBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "📖 知识"
-
-[node name="ProjectTemplateBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "🏗️ 项目"
-
-[node name="SceneGenBtn" type="Button" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-text = "🎬 场景"
-
-[node name="Spacer" type="Control" parent="Margin/VBox/BottomBar"]
-layout_mode = 2
-size_flags_horizontal = 3
+text = "✅ 应用代码"

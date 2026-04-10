@@ -740,12 +740,21 @@ public class GameAIAssistant : EditorWindow
 
         string userMsg = inputText.Trim();
         inputText = "";
-        inputText = ""; // Clear the text field
-        GUI.FocusControl(null); // Remove focus to prevent repeated sends
+        GUI.FocusControl(null);
         AddMessage(userMsg, true);
 
+        // 先尝试直接执行命令
+        string execResult = GameAIExecutor.Execute(userMsg);
+        if (execResult != null)
+        {
+            AddMessage(execResult, false);
+            return;
+        }
+
+        // 再尝试斜杠命令
         if (HandleCommand(userMsg)) return;
 
+        // 最后才发送给 AI
         isProcessing = true;
         statusText = selectedLanguage == "zh" ? "思考中..." : "Thinking...";
         Repaint();
@@ -906,25 +915,39 @@ Current project: " + currentProjectName + ", Unity " + currentUnityVersion;
 
     string BuildRequestJson(List<Dictionary<string, string>> messages_list)
     {
+        // JsonUtility 不能序列化 Dictionary，需要手动构建 JSON
+        var sb = new StringBuilder();
+        sb.Append("{");
+        
         if (modelType == "local")
         {
-            return JsonUtility.ToJson(new
-            {
-                model = selectedLocalModel,
-                messages = messages_list,
-                stream = false
-            });
+            sb.Append("\"model\":\"").Append(EscapeJson(selectedLocalModel)).Append("\",");
         }
         else
         {
-            return JsonUtility.ToJson(new
-            {
-                model = selectedModel,
-                messages = messages_list,
-                max_tokens = 4000,
-                temperature = 0.7
-            });
+            sb.Append("\"model\":\"").Append(EscapeJson(selectedModel)).Append("\",");
+            sb.Append("\"max_tokens\":4000,\"temperature\":0.7,");
         }
+        
+        sb.Append("\"stream\":false,");
+        sb.Append("\"messages\":[");
+        
+        for (int i = 0; i < messages_list.Count; i++)
+        {
+            var msg = messages_list[i];
+            if (i > 0) sb.Append(",");
+            sb.Append("{\"role\":\"").Append(EscapeJson(msg["role"])).Append("\"");
+            sb.Append(",\"content\":\"").Append(EscapeJson(msg["content"])).Append("\"}");
+        }
+        
+        sb.Append("]}");
+        return sb.ToString();
+    }
+    
+    string EscapeJson(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
     }
 
     string GetApiUrl()
@@ -968,16 +991,23 @@ Current project: " + currentProjectName + ", Unity " + currentUnityVersion;
         catch { return json; }
     }
 
+    [Serializable]
     private class OpenAIResponse { public List<OpenAIChoice> choices; }
+    [Serializable]
     private class OpenAIChoice { public OpenAIMessage message; }
+    [Serializable]
     private class OpenAIMessage { public string content; }
     [Serializable]
     private class ClaudeResponse { public List<ClaudeContent> content; }
+    [Serializable]
     private class ClaudeContent { public string text; }
     [Serializable]
     private class GeminiResponse { public List<GeminiCandidate> candidates; }
+    [Serializable]
     private class GeminiCandidate { public GeminiContent content; }
+    [Serializable]
     private class GeminiContent { public List<GeminiPart> parts; }
+    [Serializable]
     private class GeminiPart { public string text; }
 
     // ============================================================
@@ -1225,6 +1255,239 @@ Current project: " + currentProjectName + ", Unity " + currentUnityVersion;
         if (modelId.Contains("claude")) return "https://console.anthropic.com/settings/keys";
         if (modelId.Contains("gemini")) return "https://aistudio.google.com/app/apikey";
         return "https://platform.openai.com/api-keys";
+    }
+}
+
+// ============================================================
+// GameAIExecutor - 直接执行 Unity 操作（不废话）
+// ============================================================
+public static class GameAIExecutor
+{
+    // 识别并执行命令
+    public static string Execute(string command)
+    {
+        string cmd = command.ToLower().Trim();
+        
+        // 创建地面
+        if (cmd.Contains("地面") || cmd.Contains("floor") || cmd.Contains("ground") || cmd.Contains("plane"))
+        {
+            return CreateGround();
+        }
+        
+        // 创建立方体/方块
+        if (cmd.Contains("立方体") || cmd.Contains("方块") || cmd.Contains("cube") || cmd.Contains("block"))
+        {
+            return CreateCube();
+        }
+        
+        // 创建球体
+        if (cmd.Contains("球") || cmd.Contains("sphere") || cmd.Contains("ball"))
+        {
+            return CreateSphere();
+        }
+        
+        // 创建圆柱
+        if (cmd.Contains("圆柱") || cmd.Contains("cylinder"))
+        {
+            return CreateCylinder();
+        }
+        
+        // 创建胶囊
+        if (cmd.Contains("胶囊") || cmd.Contains("capsule"))
+        {
+            return CreateCapsule();
+        }
+        
+        // 添加光源
+        if (cmd.Contains("灯") || cmd.Contains("light") || cmd.Contains("光照"))
+        {
+            return CreateLight();
+        }
+        
+        // 创建空对象
+        if (cmd.Contains("空对象") || cmd.Contains("empty") || cmd.Contains("空物体"))
+        {
+            return CreateEmpty();
+        }
+        
+        // 创建相机
+        if (cmd.Contains("相机") || cmd.Contains("camera") || cmd.Contains("摄像机"))
+        {
+            return CreateCamera();
+        }
+        
+        // 添加刚体
+        if (cmd.Contains("刚体") || cmd.Contains("rigidbody"))
+        {
+            return AddRigidbody();
+        }
+        
+        // 添加碰撞器
+        if (cmd.Contains("碰撞") || cmd.Contains("collider"))
+        {
+            return AddCollider();
+        }
+        
+        // 清空场景
+        if (cmd.Contains("清空") || cmd.Contains("clear"))
+        {
+            return ClearScene();
+        }
+        
+        // 保存场景
+        if (cmd.Contains("保存") || cmd.Contains("save"))
+        {
+            return SaveScene();
+        }
+        
+        return null; // 没有匹配的命令
+    }
+    
+    static string CreateGround()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        go.name = "Ground";
+        go.transform.position = Vector3.zero;
+        go.transform.localScale = new Vector3(2, 1, 2);
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Ground");
+        return "✓ 已创建地面 (Plane)";
+    }
+    
+    static string CreateCube()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "Cube";
+        go.transform.position = new Vector3(0, 0.5f, 0);
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Cube");
+        return "✓ 已创建立方体";
+    }
+    
+    static string CreateSphere()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "Sphere";
+        go.transform.position = new Vector3(0, 1f, 0);
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Sphere");
+        return "✓ 已创建球体";
+    }
+    
+    static string CreateCylinder()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        go.name = "Cylinder";
+        go.transform.position = new Vector3(0, 1f, 0);
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Cylinder");
+        return "✓ 已创建圆柱";
+    }
+    
+    static string CreateCapsule()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        go.name = "Capsule";
+        go.transform.position = new Vector3(0, 1f, 0);
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Capsule");
+        return "✓ 已创建胶囊";
+    }
+    
+    static string CreateLight()
+    {
+        var go = new GameObject("Directional Light");
+        go.transform.rotation = Quaternion.Euler(50, -30, 0);
+        var light = go.AddComponent<Light>();
+        light.type = LightType.Directional;
+        light.intensity = 1.5f;
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Light");
+        return "✓ 已创建方向光";
+    }
+    
+    static string CreateEmpty()
+    {
+        var go = new GameObject("Empty");
+        go.transform.position = Vector3.zero;
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Empty");
+        return "✓ 已创建空对象";
+    }
+    
+    static string CreateCamera()
+    {
+        var go = new GameObject("Camera");
+        go.transform.position = new Vector3(0, 2, -10);
+        go.transform.rotation = Quaternion.Euler(10, 0, 0);
+        go.AddComponent<Camera>();
+        go.AddComponent<AudioListener>();
+        Selection.activeGameObject = go;
+        Undo.RegisterCreatedObjectUndo(go, "Create Camera");
+        return "✓ 已创建相机";
+    }
+    
+    static string AddRigidbody()
+    {
+        var selected = Selection.activeGameObject;
+        if (selected == null)
+            return "⚠ 请先选择一个物体";
+        
+        if (selected.GetComponent<Rigidbody>())
+            return "⚠ 该物体已有刚体";
+        
+        var rb = selected.AddComponent<Rigidbody>();
+        rb.mass = 1f;
+        rb.useGravity = true;
+        Undo.RegisterCreatedObjectUndo(rb, "Add Rigidbody");
+        return "✓ 已添加刚体到 " + selected.name;
+    }
+    
+    static string AddCollider()
+    {
+        var selected = Selection.activeGameObject;
+        if (selected == null)
+            return "⚠ 请先选择一个物体";
+        
+        if (selected.GetComponent<Collider>())
+            return "⚠ 该物体已有碰撞器";
+        
+        var collider = selected.AddComponent<BoxCollider>();
+        Undo.RegisterCreatedObjectUndo(collider, "Add Collider");
+        return "✓ 已添加碰撞器到 " + selected.name;
+    }
+    
+    static string ClearScene()
+    {
+        var objects = GameObject.FindObjectsOfType<GameObject>();
+        int count = 0;
+        foreach (var obj in objects)
+        {
+            if (obj != null && obj.transform.parent == null)
+            {
+                if (!obj.name.StartsWith("Main Camera") && !obj.name.StartsWith("Directional"))
+                {
+                    Undo.DestroyObjectImmediate(obj);
+                    count++;
+                }
+            }
+        }
+        return "✓ 已清除 " + count + " 个物体";
+    }
+    
+    static string SaveScene()
+    {
+        var scene = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene();
+        if (string.IsNullOrEmpty(scene.path))
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, "Assets/Scenes/Scene.unity");
+            return "✓ 场景已保存到 Assets/Scenes/Scene.unity";
+        }
+        else
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene);
+            return "✓ 场景已保存";
+        }
     }
 }
 

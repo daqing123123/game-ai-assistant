@@ -1008,7 +1008,7 @@ func build_messages(user_message: String) -> Array:
 		lang = "zh" if OS.get_locale_language() == "zh" else "en"
 	if lang == "en":
 		project_path = "Unknown"
-	if Engine.get_main_loop() and Engine.get_main_loop().root:
+	if Engine.get_main_loop() and Engine.get_main_loop().get_root():
 		project_path = ProjectSettings.globalize_path("res://")
 	
 	var system = get_system_prompt().format({"project_path": project_path})

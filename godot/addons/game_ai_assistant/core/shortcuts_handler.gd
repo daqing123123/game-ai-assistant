@@ -120,7 +120,7 @@ func _toggle_panel() -> void:
 		main_panel.visible = not main_panel.visible
 	else:
 		# 查找主面板
-		var base = Engine.get_main_loop().root
+		var base = Engine.get_main_loop().get_root()
 		_find_and_toggle_panel(base)
 
 func _find_and_toggle_panel(node: Node) -> void:

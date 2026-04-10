@@ -1134,7 +1134,7 @@ func _on_accept_diff() -> void:
 		
 		# 刷新编辑器
 		if Engine.is_editor_hint():
-			# reload_plugin removed in Godot 4
+			print("[Game AI] 代码已应用，请在编辑器中查看效果")
 	else:
 		add_assistant_message("❌ " + result.get("message", "应用失败"))
 

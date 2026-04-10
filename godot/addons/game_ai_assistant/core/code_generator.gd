@@ -229,7 +229,7 @@ func generate_test_file_name(target_file: String, extension: String) -> String:
 		# 从目标文件提取类名
 		var extracted_class = extract_class_name_from_path(target_file)
 		if not extracted_class.is_empty():
-			base_name += class_name + "_"
+			base_name += extracted_class + "_"
 		else:
 			# 使用文件名
 			var file_name = target_file.get_file()
@@ -302,9 +302,9 @@ func tear_down():
 	pass
 
 """.format({
-		"class_name": class_name,
+		"class_name": extracted_class,
 		"timestamp": Time.get_datetime_string_from_system(),
-		"class_class": class_name
+		"class_class": extracted_class
 	})
 	
 	# 为每个公共方法生成测试
@@ -382,7 +382,7 @@ namespace {namespace}
 
 """.format({
 		"namespace": namespace if not namespace.is_empty() else "GameAIAssistant.Tests",
-		"class_name": class_name,
+		"class_name": extracted_class,
 		"timestamp": Time.get_datetime_string_from_system()
 	})
 	

@@ -377,7 +377,7 @@ func validate_config(model_type: String, model_name: String, api_key: String = "
 	elif model_type == "local":
 		# 检查Ollama是否运行
 		var http = HTTPRequest.new()
-		var tree = Engine.get_main_loop().root
+		var tree = Engine.get_main_loop().get_root()
 		tree.add_child(http)
 		
 		var result = await http.request("http://localhost:11434/api/tags")

@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 # 截图处理器 - 捕获编辑器截图供AI分析
 # Phase 4 功能
@@ -13,7 +13,7 @@ func _ready() -> void:
 
 # 捕获编辑器视口截图
 func capture_editor_viewport() -> Image:
-	var viewport = Engine.get_main_loop().root
+	var viewport = Engine.get_main_loop().get_root()
 	
 	# 获取视口纹理
 	var texture = viewport.get_texture()

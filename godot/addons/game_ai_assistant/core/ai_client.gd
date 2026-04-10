@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 # AI客户端
 # 支持多种AI模型：DeepSeek、Claude、GPT、本地Ollama
@@ -154,7 +154,7 @@ func build_messages(new_message: String, history: Array, context: Dictionary) ->
 	var project_type = "通用游戏"
 	
 	# 获取项目信息
-	if Engine.get_main_loop().root:
+	if Engine.get_main_loop().get_root():
 		project_path = ProjectSettings.globalize_path("res://")
 	
 	var system_prompt = SYSTEM_PROMPT.format({

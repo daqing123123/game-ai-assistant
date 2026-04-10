@@ -1,4 +1,4 @@
-﻿extends Node
+﻿﻿extends Node
 
 # AI处理器 - 核心AI逻辑
 # 处理用户输入，调用AI，返回结果
@@ -26,45 +26,123 @@ var _analysis_mode: String = ""  # "explain" | "optimize" | ""
 var _pending_user_message: String = ""
 
 # 系统提示词（双语）
-const SYSTEM_PROMPT_ZH = """你是一个专业的游戏开发AI助手，名字叫八爪鱼。
+const SYSTEM_PROMPT_ZH = """
+你是一个专业的Godot 4游戏开发AI助手，名字叫八爪鱼。像Ziva一样深度集成，但代码完全本地，数据不上传。
+
+## 核心原则
+- 永远使用Godot 4的API和GDScript语法
+- 参考Godot官方文档（https://docs.godotengine.org/en/stable/）
+- 代码要有中文注释
+- 重要API要标注对应的文档链接
 
 ## 你的能力
-1. 生成Unity(C#)和Godot(GDScript)代码
+1. 生成GDScript代码（Godot原生）
 2. 修改现有代码
-3. 搜索免费可商用的游戏素材
-4. 解释游戏开发概念
-5. 诊断和修复Bug
+3. 搜索免费可商用的游戏索料
+4. 解释Godot API和游戏开发概念
+5. 诊断和修复Bug（分析错误日志）
 6. 提供游戏开发建议
 
-## 代码格式要求
-- GDScript使用extends Node
-- C#使用UnityEngine命名空间
-- 代码要有注释
-- 重要代码用中文注释
+## 常用Godot 4 API（必须准硍）
+- CharacterBody2D/3D: move_and_slide(), velocity, is_on_floor(), is_on_wall()
+- Area2D/3D: body_entered, overlaps_node(), get_overlapping_bodies()
+- TileMap: set_cell(), get_cell(), get_used_cells(), get_cell_source_id()
+- Sprite2D: texture, hframes, vframes, frame
+- AnimationPlayer: play(), stop(), get_current_animation()
+- Node: add_child(), queue_free(), get_node_or_null()
+- 信号: signal my_signal -> emit() -> connect()
+- Resource: ResourceLoader.load(), preload()
 
-## 素材搜索
-如果用户要找素材，返回JSON格式：
+## 索料搜索
+如果用户要找索料，返回JSON格式\uff1a
 {"action": "search_assets", "query": "搜索关键词", "type": "sound|model|texture|sprite"}
 
+## Bug诊断
+如果用户贴了错误日志\uff1a
+1. 识别错误类型（私引用/数组越界/无效调用等）
+2. 给出2-3个最可能的原因
+3. 给出具体修复代码
+
 ## 代码解释
-如果用户请求解释代码（"解释代码"、"解释这段代码"、"分析代码"、"这段代码做了什么"等），返回JSON格式：
-{"action": "explain_code", "code": "用户选中的代码"}
-
-## 代码优化
-如果用户请求优化代码（"优化代码"、"优化这段代码"、"代码优化"、"如何改进"等），返回JSON格式：
-{"action": "optimize_code", "code": "用户选中的代码"}
-
-## 模板请求
-如果用户要代码模板，返回JSON格式：
-{"action": "generate_template", "template": "模板名称"}
-
-## 项目信息
-- 引擎: Godot 4.2
-- 项目路径: {project_path}
+直接输出中文解释，包含\uff1a整体功能、关键变量、信号连接、潜在问题
 
 回答要简洁实用，像和朋友聊天一样自然。"""
 
-const SYSTEM_PROMPT_EN = """You are a professional game development AI assistant named Octopus.
+const SYSTEM_PROMPT_EN = """You are a professional Godot 4 game development AI assistant named Octopus. Like Ziva, deeply integrated with the editor, but your code stays local - no data upload.
+
+## Core Principles
+- Always use Godot 4 APIs and GDScript syntax
+- Reference Godot docs (https://docs.godotengine.org/en/stable/)
+- Add comments in your responses
+- Include doc links for important APIs
+
+## Your Capabilities
+1. Generate GDScript code (Godot native)
+2. Modify existing code
+3. Search for free commercially-usable game assets
+4. Explain Godot APIs and game dev concepts
+5. Diagnose and fix bugs (analyze error logs)
+6. Provide game development advice
+
+## Common Godot 4 APIs (be accurate)
+- CharacterBody2D/3D: move_and_slide(), velocity, is_on_floor(), is_on_wall()
+- Area2D/3D: body_entered, overlaps_node(), get_overlapping_bodies()
+- TileMap: set_cell(), get_cell(), get_used_cells(), get_cell_source_id()
+- Sprite2D: texture, hframes, vframes, frame
+- AnimationPlayer: play(), stop(), get_current_animation()
+- Node: add_child(), queue_free(), get_node_or_null()
+- Signals: signal my_signal -> emit() -> connect()
+- Resource: ResourceLoader.load(), preload()
+
+## Asset Search
+If user wants assets: {"action": "search_assets", "query": "...", "type": "..."}
+
+## Bug Diagnosis
+If user pastes error logs:
+1. Identify error type (null ref / out of bounds / invalid call / etc.)
+2. Give 2-3 most likely causes
+3. Show specific fix code
+
+Be concise and practical, like chatting with a friend."""
+
+You are a professional Godot 4 game development AI assistant named Octopus. Like Ziva, deeply integrated with the editor, but your code stays local - no data upload.
+
+## Core Principles
+- Always use Godot 4 APIs and GDScript syntax
+- Reference Godot docs (https://docs.godotengine.org/en/stable/)
+- Add comments in your responses
+- Include doc links for important APIs
+
+## Your Capabilities
+1. Generate GDScript code (Godot native)
+2. Modify existing code
+3. Search for free commercially-usable game assets
+4. Explain Godot APIs and game dev concepts
+5. Diagnose and fix bugs (analyze error logs)
+6. Provide game development advice
+
+## Common Godot 4 APIs (be accurate)
+- CharacterBody2D/3D: move_and_slide(), velocity, is_on_floor(), is_on_wall()
+- Area2D/3D: body_entered, overlaps_node(), get_overlapping_bodies()
+- TileMap: set_cell(), get_cell(), get_used_cells(), get_cell_source_id()
+- Sprite2D: texture, hframes, vframes, frame
+- AnimationPlayer: play(), stop(), get_current_animation()
+- Node: add_child(), queue_free(), get_node_or_null()
+- Signals: signal my_signal -> emit() -> connect()
+- Resource: ResourceLoader.load(), preload()
+
+## Asset Search
+If user wants assets: {"action": "search_assets", "query": "...", "type": "..."}
+
+## Bug Diagnosis
+If user pastes error logs:
+1. Identify error type (null ref / out of bounds / invalid call / etc.)
+2. Give 2-3 most likely causes
+3. Show specific fix code
+
+Be concise and practical, like chatting with a friend."""
+
+You are a professional game development AI assistant named Octopus.
 
 ## Your Capabilities
 1. Generate Unity(C#) and Godot(GDScript) code
@@ -134,9 +212,178 @@ func process_message(user_input: String) -> void:
 		thinking_finished.emit(special_result)
 		return
 	
+	# ========== Ziva 风格：自动读取上下文 ==========
+	# 自动检测错误关键词 → 读取输出日志注入给 AI
+	var enhanced_input = _auto_inject_context(user_input)
+	
 	# 调用AI
-	await call_ai(user_input)
+	await call_ai(enhanced_input)
 	is_processing = false
+
+# ==================== Ziva 风格：自动注入上下文 ====================
+func _auto_inject_context(user_input: String) -> String:
+	"""
+	像 Ziva 一样，自动注入项目上下文让 AI 回答更准确：
+	1. 自动检测错误关键词 → 读取输出日志
+	2. 自动检测节点/类名 → 注入 Godot 文档
+	3. 自动检测截图请求 → 附上截图
+	"""
+	var lower = user_input.to_lower()
+	var context_lines: Array = []
+	var has_context = false
+	
+	# 1. 错误关键词 → 自动读取输出日志
+	var error_keywords = ["报错", "出错了", "error", "bug", "崩溃", "闪退", 
+		"null", "空指针", "nullreference", "invalid", "failed", "为什么", 
+		"修复", "fix", "有问题", "不工作", "不行", "怎么解决"]
+	
+	var has_error_keyword = false
+	for kw in error_keywords:
+		if kw in lower:
+			has_error_keyword = true
+			break
+	
+	if has_error_keyword:
+		var log_content = _read_output_log()
+		if not log_content.is_empty():
+			context_lines.append("【自动读取：编辑器输出日志】")
+			context_lines.append(log_content)
+			context_lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+			has_context = true
+	
+	# 2. 检测节点/类名 → 注入 Godot 文档
+	var class_keywords = ["node", "sprite", "characterbody", "rigidbody", 
+		"area2d", "collision", "tilemap", "camera", "animation", "shader",
+		"texture", "viewport", "scene", "signal", "autoload"]
+	
+	var has_class_keyword = false
+	for kw in class_keywords:
+		if kw in lower:
+			has_class_keyword = true
+			break
+	
+	if has_class_keyword:
+		var docs = _get_godot_docs_hint(lower)
+		if not docs.is_empty():
+			context_lines.append("【Godot 文档参考】")
+			context_lines.append(docs)
+			has_context = true
+	
+	# 3. 截图关键词 → 自动截取编辑器画面
+	var screenshot_keywords = ["看看", "截图", "看看这个", "界面", "布局", "效果",
+		"screenshot", "look at", "what is", "分析场景", "debug", "调试"]
+	
+	var has_screenshot_keyword = false
+	for kw in screenshot_keywords:
+		if kw in lower:
+			has_screenshot_keyword = true
+			break
+	
+	if has_screenshot_keyword:
+		var screenshot = _auto_capture_context()
+		if not screenshot.is_empty():
+			context_lines.append(screenshot)
+			has_context = true
+	
+	# 组装增强后的输入
+	if has_context:
+		var enhanced = "\n".join(context_lines)
+		enhanced += "\n\n【用户问题】" + user_input
+		return enhanced
+	
+	return user_input
+
+# 读取编辑器输出日志（最后50行）
+func _read_output_log() -> String:
+	var log_lines: Array = []
+	
+	# 尝试从调试器读取错误
+	var debugger = Engine.get_main_loop()
+	if debugger and debugger.has_method("get_output"):
+		var output = debugger.get_output()
+		if output is String and not output.is_empty():
+			var lines = output.split("\n")
+			var recent = lines.slice(max(0, lines.size() - 50), lines.size())
+			for line in recent:
+				if "error" in line.to_lower() or "warning" in line.to_lower():
+					log_lines.append(line)
+	
+	# 读取项目中的 .log 文件（如果有）
+	var log_path = "user://output.log"
+	if FileAccess.file_exists(log_path):
+		var file = FileAccess.open(log_path, FileAccess.READ)
+		if file:
+			var content = file.get_as_text()
+			file.close()
+			var lines = content.split("\n")
+			var recent = lines.slice(max(0, lines.size() - 30), lines.size())
+			for line in recent:
+				if "error" in line.to_lower() or "err" in line.to_lower():
+					log_lines.append(line)
+	
+	if log_lines.is_empty():
+		return ""
+	
+	# 去重
+	var unique: Array = []
+	var seen: Dictionary = {}
+	for line in log_lines:
+		if not seen.get(line, false):
+			seen[line] = true
+			unique.append(line)
+	
+	return "\n".join(unique.slice(0, 30))
+
+# 根据关键词返回 Godot 文档提示
+func _get_godot_docs_hint(query: String) -> String:
+	var docs_map: Dictionary = {
+		"sprite": "Sprite2D - 2D精灵节点\n- texture: 精灵纹理\n- centered: 是否居中\n- hframes/vframes: 动画帧分割\n- region_enabled: 是否使用区域裁剪\n文档: https://docs.godotengine.org/en/stable/classes/class_sprite2d.html",
+		
+		"characterbody": "CharacterBody2D/3D - 角色控制节点\n- move_and_slide(): 移动并滑动\n- velocity: 当前速度向量\n- is_on_floor(): 是否在地面\n- is_on_wall(): 是否靠墙\n文档: https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html",
+		
+		"rigidbody": "RigidBody2D/3D - 物理刚体节点\n- apply_central_impulse(): 施加冲量\n- linear_velocity: 线性速度\n- angular_velocity: 角速度\n文档: https://docs.godotengine.org/en/stable/classes/class_rigidbody2d.html",
+		
+		"area2d": "Area2D - 区域检测节点\n- body_entered: 物体进入信号\n- body_exited: 物体离开信号\n- overlaps_node(): 检测是否重叠\n文档: https://docs.godotengine.org/en/stable/classes/class_area2d.html",
+		
+		"collision": "CollisionShape2D - 碰撞形状节点\n- shape: 碰撞形状资源\n- disabled: 是否禁用碰撞\n常与 CharacterBody/Area/RigidBody 配合使用\n文档: https://docs.godotengine.org/en/stable/classes/class_collisionshape2d.html",
+		
+		"tilemap": "TileMap - 瓦片地图节点\n- set_cell(): 设置单个瓦片\n- get_cell(): 获取瓦片\n- use_parent_matirx: 使用父节点变换矩阵\n文档: https://docs.godotengine.org/en/stable/classes/class_tilemap.html",
+		
+		"camera": "Camera2D/3D - 相机节点\n- current: 是否当前激活相机\n- make_current(): 设为当前相机\n- drag_margin_*: 拖拽边缘\n文档: https://docs.godotengine.org/en/stable/classes/class_camera2d.html",
+		
+		"animation": "AnimationPlayer - 动画播放器节点\n- play(): 播放动画\n- stop(): 停止播放\n- get_current_animation(): 获取当前动画名\n文档: https://docs.godotengine.org/en/stable/classes/class_animationplayer.html",
+		
+		"signal": "信号（Signal）\n- 定义: signal my_signal\n- 连接: node.my_signal.connect(callable)\n- 发射: my_signal.emit()\n文档: https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-signals"
+	}
+	
+	# 匹配关键词
+	for kw in docs_map.keys():
+		if kw in query:
+			return docs_map[kw]
+	
+	return ""
+
+# 自动截取编辑器上下文（Ziva 风格截图）
+func _auto_capture_context() -> String:
+	var screenshot_node = get_node_or_null("/root/ScreenshotHandler")
+	if screenshot_node and screenshot_node.has_method("capture_editor_viewport"):
+		var image = screenshot_node.capture_editor_viewport()
+		if image:
+			return "[📸 截图已自动捕获: %dx%d，请分析此画面]" % [image.get_width(), image.get_height()]
+	
+	# 备选：读取选中节点信息
+	var editor = Engine.get_main_loop()
+	if editor:
+		var selection = editor.get_selection if "get_selection" in editor else null
+		if selection:
+			var selected = selection.get_selected_nodes()
+			if not selected.is_empty():
+				var node_info: Array = []
+				for node in selected:
+					node_info.append("节点: %s | 类型: %s" % [node.name, node.get_class()])
+				return "[📸 选中节点]\n" + "\n".join(node_info)
+	
+	return ""
 
 # ==================== 项目模板功能 ====================
 
@@ -1012,6 +1259,10 @@ func build_messages(user_message: String) -> Array:
 		project_path = ProjectSettings.globalize_path("res://")
 	
 	var system = get_system_prompt().format({"project_path": project_path})
+	
+	# ========== Ziva 风格：注入项目上下文 ==========
+	system = _inject_project_context(system)
+	
 	var messages: Array = [{"role": "system", "content": system}]
 	
 	# 添加历史（最近10轮）
@@ -1023,6 +1274,55 @@ func build_messages(user_message: String) -> Array:
 	messages.append({"role": "user", "content": user_message})
 	
 	return messages
+
+# 注入项目上下文（Ziva 风格）
+func _inject_project_context(system_prompt: String) -> String:
+	"""向系统提示词注入当前项目信息，让 AI 更懂你的项目"""
+	var context_parts: Array = []
+	context_parts.append("\n\n## 当前项目信息")
+	
+	# 项目路径
+	if ProjectSettings:
+		var res_path = ProjectSettings.globalize_path("res://")
+		if not res_path.is_empty():
+			context_parts.append("- 项目路径: " + res_path)
+	
+	# 引擎版本
+	context_parts.append("- Godot 版本: " + Engine.get_version_info()["string"])
+	
+	# 场景名称
+	var current_scene = ""
+	if Engine.get_main_loop() and "current_scene" in Engine.get_main_loop():
+		# Godot 4 方式
+		var root = Engine.get_main_loop().root
+		if root:
+			for child in root.get_children():
+				if child.get_class() == "Node" and child.name != "GameAIHandler":
+					current_scene = child.name
+					break
+	if current_scene.is_empty():
+		current_scene = "（无活动场景）"
+	context_parts.append("- 当前场景: " + current_scene)
+	
+	# 脚本语言偏好
+	context_parts.append("- 脚本语言: GDScript（Godot原生）")
+	
+	# 渲染器
+	var renderer = ProjectSettings.get_setting("rendering/rendererendering_method") if ProjectSettings else "forward_plus"
+	context_parts.append("- 渲染器: " + str(renderer))
+	
+	# 自定义自动加载
+	var autoloads: Array = []
+	for i in range(10):  # 检查前10个autoload
+		var autoload_name = ProjectSettings.get_setting("autoload/param_%d/name" % i) if ProjectSettings else ""
+		if not autoload_name.is_empty():
+			autoloads.append(autoload_name)
+	if not autoloads.is_empty():
+		context_parts.append("- 自动加载: " + ", ".join(autoloads.slice(0, 5)))
+	
+	# 添加到系统提示词
+	var context = "\n".join(context_parts)
+	return system_prompt + context
 
 
 

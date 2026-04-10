@@ -625,7 +625,7 @@ public class GameAIAssistant : EditorWindow
             display = display.Substring(0, 4000) + "\n... (内容过长已截断)";
 
         var style = new GUIStyle(EditorStyles.label) { wordWrap = true, richText = true };
-        GUILayout.Label(display, style, GUILayout.MinHeight(20));
+        GUILayout.Label(display, style, GUILayout.ExpandHeight(true));
         GUILayout.Space(2);
         EditorGUILayout.EndVertical();
 

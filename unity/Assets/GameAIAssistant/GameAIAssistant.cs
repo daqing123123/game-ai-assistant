@@ -879,38 +879,190 @@ public class GameAIAssistant : EditorWindow
 
     List<Dictionary<string, string>> BuildMessages(string userMessage)
     {
+        // Ziva 风格：自动注入上下文
+        string enhancedMessage = AutoInjectContext(userMessage);
+
         var msgs = new List<Dictionary<string, string>>();
         msgs.Add(new Dictionary<string, string> { { "role", "system" }, { "content", GetSystemPrompt() } });
 
         foreach (var msg in messages)
             msgs.Add(new Dictionary<string, string> { { "role", msg.role }, { "content", msg.content } });
 
-        msgs.Add(new Dictionary<string, string> { { "role", "user" }, { "content", userMessage } });
+        msgs.Add(new Dictionary<string, string> { { "role", "user" }, { "content", enhancedMessage } });
         return msgs;
     }
 
     string GetSystemPrompt()
     {
+        // Ziva 风格：Unity 专注，注入项目上下文
+        string projectInfo = autoContext
+            ? $"\n当前项目：{currentProjectName} | Unity {currentUnityVersion} | 渲染管线：{GetRenderPipeline()}"
+            : "";
+
         if (selectedLanguage == "zh")
         {
-            return @"你是一个专业的 Unity 游戏开发 AI 助手，名字叫章鱼。
-你的能力：
-1. 创建 Unity C# 脚本
+            return @"你是一个专业的Unity游戏开发AI助手，名字叫章鱼。像Ziva一样深度集成编辑器，但完全本地运行，数据不上传。
+
+## 核心原则
+- 永远使用Unity的C# API
+- 参考Unity官方文档（https://docs.unity.com/）
+- 代码要有中文注释
+- 重要API要标注文档链接
+
+## 你的能力
+1. 创建Unity C# 脚本（MonoBehaviour/EditorScript）
 2. 修改现有代码
 3. 搜索免费可商用的游戏素材
-4. 解释 Unity 概念和 API
-5. 诊断和修复 Bug
-代码格式：使用 C#，用 ```csharp 包裹代码，添加注释。
-如果生成了代码，提醒用户可以用 /apply N 来保存代码。
-当前项目：" + currentProjectName + "，Unity " + currentUnityVersion;
+4. 解释Unity概念和API
+5. 诊断和修复Bug（分析Console错误）
+6. 提供游戏开发建议
+
+## 常用Unity API（必须准确）
+- Transform: position, localPosition, Find(), GetChild()
+- GameObject: Instantiate(), Destroy(), GetComponent<T>()
+- Rigidbody: AddForce(), velocity, constraints
+- Collider: OnCollisionEnter(), OnTriggerEnter(), isTrigger
+- Camera: Camera.main, WorldToScreenPoint(), FieldOfView
+- Time: deltaTime, time, timeScale
+- Input: GetKey(), GetAxis(), GetMouseButton()
+- SceneManager: LoadScene(), GetActiveScene()
+- Resources: Load(), LoadAll()
+
+## 代码格式
+用 ```csharp 包裹代码，添加中文注释。
+生成代码后提醒用户可以用「应用代码」保存。
+
+## Bug诊断
+如果用户贴了Console错误日志：
+1. 识别错误类型（NullRef/MissingRef/InvalidOperation等）
+2. 给出2-3个最可能的原因
+3. 给出具体修复代码" + projectInfo;
         }
         else
         {
-            return @"You are a professional Unity game development AI assistant named Octopus.
-Your capabilities: write C# scripts, modify code, search assets, explain APIs, fix bugs.
-Code format: use C#, wrap in ```csharp, add comments.
-If code is generated, remind user to use /apply N to save.
-Current project: " + currentProjectName + ", Unity " + currentUnityVersion;
+            return @"You are a professional Unity game development AI assistant named Octopus. Like Ziva, deeply integrated with the editor, but your code stays local - no data upload.
+
+## Core Principles
+- Always use Unity C# APIs
+- Reference Unity docs (https://docs.unity.com/)
+- Add comments in code
+- Include doc links for important APIs
+
+## Your Capabilities
+1. Create Unity C# scripts (MonoBehaviour/EditorScript)
+2. Modify existing code
+3. Search free commercially-usable game assets
+4. Explain Unity APIs and concepts
+5. Diagnose and fix bugs (analyze Console errors)
+6. Provide game development advice
+
+## Common Unity APIs (be accurate)
+- Transform: position, localPosition, Find(), GetChild()
+- GameObject: Instantiate(), Destroy(), GetComponent<T>()
+- Rigidbody: AddForce(), velocity, constraints
+- Collider: OnCollisionEnter(), OnTriggerEnter(), isTrigger
+- Camera: Camera.main, WorldToScreenPoint(), FieldOfView
+- Time: deltaTime, time, timeScale
+- Input: GetKey(), GetAxis(), GetMouseButton()
+- SceneManager: LoadScene(), GetActiveScene()
+- Resources: Load(), LoadAll()
+
+## Code Format
+Wrap code in ```csharp, add comments.
+After generating code, remind user they can use Apply to save." + projectInfo;
+        }
+    }
+
+    // Ziva 风格：自动注入上下文
+    string AutoInjectContext(string input)
+    {
+        string lower = input.ToLower();
+
+        // 错误关键词 → 读取Console日志
+        string[] errorKeywords = { "报错", "出错了", "error", "bug", "崩溃", "闪退",
+            "null", "空指针", "invalid", "failed", "为什么", "修复", "不工作" };
+        bool hasError = false;
+        foreach (var kw in errorKeywords)
+            if (lower.Contains(kw)) { hasError = true; break; }
+
+        if (hasError)
+        {
+            string logs = ReadConsoleLogs();
+            if (!string.IsNullOrEmpty(logs))
+                input = "【自动读取：Unity Console错误日志】\n" + logs + "\n━━━━━━━━━━━━━━━━━━━━\n\n" + input;
+        }
+
+        // Unity API关键词 → 注入文档提示
+        string[] apiKeywords = { "rigidbody", "collider", "transform", "monobehaviour",
+            "gameobject", "camera", "animation", "particle", "shader", "light", "mesh" };
+        bool hasApi = false;
+        foreach (var kw in apiKeywords)
+            if (lower.Contains(kw)) { hasApi = true; break; }
+
+        if (hasApi)
+        {
+            string docs = GetUnityDocsHint(lower);
+            if (!string.IsNullOrEmpty(docs))
+                input = "【Unity 文档参考】\n" + docs + "\n━━━━━━━━━━━━━━━━━━━━\n\n" + input;
+        }
+
+        return input;
+    }
+
+    // 读取Unity Player.log 最后30条错误
+    string ReadConsoleLogs()
+    {
+        try
+        {
+            string logPath = Path.Combine(Application.dataPath, "..", "Temp", "Player.log");
+            if (!File.Exists(logPath)) return "";
+
+            string[] lines = File.ReadAllLines(logPath);
+            var errors = new System.Collections.Generic.List<string>();
+            foreach (string line in lines)
+            {
+                string l = line.ToLower();
+                if (l.Contains("error") || l.Contains("exception") || l.Contains("fail"))
+                    errors.Add(line.Trim());
+            }
+            if (errors.Count == 0) return "";
+
+            int start = Math.Max(0, errors.Count - 30);
+            return string.Join("\n", errors.GetRange(start, errors.Count - start));
+        }
+        catch { return ""; }
+    }
+
+    // Unity文档提示
+    string GetUnityDocsHint(string query)
+    {
+        var docs = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "rigidbody", "Rigidbody - 刚体组件\n- AddForce(): 施加力\n- velocity: 当前速度\n- constraints: 冻结位置/旋转\n文档: https://docs.unity3d.com/Packages/com.unity.physics@latest" },
+            { "collider", "Collider - 碰撞体组件\n- OnCollisionEnter(): 碰撞开始\n- OnTriggerEnter(): 触发器进入\n- isTrigger: 是否为触发器\n文档: https://docs.unity3d.com/ScriptReference/Collider.html" },
+            { "transform", "Transform - 变换组件\n- position / localPosition\n- Find() / GetChild()\n- Translate() / Rotate()\n文档: https://docs.unity3d.com/ScriptReference/Transform.html" },
+            { "monobehaviour", "MonoBehaviour - Unity脚本基类\n- Awake() / Start() / Update()\n- GetComponent<T>()\n- Invoke() / Coroutine\n文档: https://docs.unity3d.com/ScriptReference/MonoBehaviour.html" },
+            { "gameobject", "GameObject - 游戏对象\n- Instantiate() / Destroy()\n- SetActive()\n- GetComponent<T>()\n文档: https://docs.unity3d.com/ScriptReference/GameObject.html" },
+            { "camera", "Camera - 摄像机\n- Camera.main: 主摄像机\n- WorldToScreenPoint()\n- fieldOfView / aspect\n文档: https://docs.unity3d.com/ScriptReference/Camera.html" },
+            { "animation", "Animation - 动画组件\n- Play() / Stop()\n- CrossFade()\n- WrapMode\n文档: https://docs.unity3d.com/ScriptReference/Animation.html" }
+        };
+
+        foreach (var kv in docs)
+            if (query.Contains(kv.Key)) return kv.Value;
+        return "";
+    }
+
+    string GetRenderPipeline()
+    {
+        try
+        {
+            string pipeline = UnityEditor.PlayerSettings.renderingSettings.renderPipelineEncoderType.ToString();
+            if (pipeline.Contains("URP") || pipeline.Contains("Universal")) return "URP";
+            if (pipeline.Contains("HDRP")) return "HDRP";
+            return "Built-in";
+        }
+        catch { return "未知"; }
+    } Unity " + currentUnityVersion;
         }
     }
 

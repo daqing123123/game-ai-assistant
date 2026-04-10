@@ -48,14 +48,12 @@ public class GameAIAssistant : EditorWindow
     private string currentProjectName = "";
     private string currentUnityVersion = "";
 
-    // UI Layout Constants
-    private const float TOOLBAR_HEIGHT = 22f;
-    private const float STATUS_HEIGHT = 20f;
-    private const float INPUT_HEIGHT = 60f;
-    private const float INPUT_MARGIN = 5f;
-    private const float SEND_WIDTH = 60f;
-    private const float PADDING = 8f;
-    private const float CHAT_MIN_HEIGHT = 120f;
+    // UI Layout Constants - 紧凑模式
+    private const float TOOLBAR_HEIGHT = 24f;
+    private const float INPUT_HEIGHT = 50f;
+    private const float PADDING = 4f;
+    private const float LINE_HEIGHT = 22f;
+    private const int MAX_VISIBLE_MESSAGES = 8; // 最多显示8条消息
 
     // Message colors
     private static readonly Color COLOR_USER_BG = new Color(0.12f, 0.42f, 0.82f);
@@ -305,13 +303,13 @@ public class GameAIAssistant : EditorWindow
     }
 
     // ============================================================
-    // GUI
+    // GUI - 极简模式：只有一个输入框
     // ============================================================
     void OnGUI()
     {
-        // Handle Enter key for sending messages
+        // 处理 Enter 键
         Event e = Event.current;
-        if (e.type == EventType.KeyDown && GUI.GetNameOfFocusedControl() == "ChatInputField")
+        if (e.type == EventType.KeyDown && GUI.GetNameOfFocusedControl() == "ChatInput")
         {
             if ((e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) && !isProcessing)
             {
@@ -323,43 +321,46 @@ public class GameAIAssistant : EditorWindow
             }
         }
 
-        float availableHeight = position.height;
-        float usedHeight = TOOLBAR_HEIGHT + STATUS_HEIGHT;
+        // 顶部状态栏（极简）
+        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+        if (GUILayout.Button("🐙", EditorStyles.toolbarButton, GUILayout.Width(30)))
+            showSettings = !showSettings;
+        GUILayout.Label(isProcessing ? "..." : "", GUILayout.Width(20));
+        GUILayout.FlexibleSpace();
+        string m = modelType == "local" ? selectedLocalModel.Split(':')[0] : selectedModel.Split('-')[0];
+        if (GUILayout.Button(m, EditorStyles.toolbarDropDown, GUILayout.Width(80)))
+            ShowModelSelector();
+        EditorGUILayout.EndHorizontal();
 
-        if (showSettings)
+        // 消息显示（紧凑，最多显示5条）
+        if (messages.Count > 0)
         {
-            // Settings Panel
-            DrawToolbar();
-            usedHeight += PADDING;
-            DrawSettingsPanel(ref usedHeight, availableHeight);
-        }
-        else
-        {
-            // Main Chat Panel
-            DrawToolbar();
-            usedHeight += PADDING;
-
-            // Pending code blocks section
-            if (pendingCodeBlocks.Count > 0)
+            scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(Mathf.Min(messages.Count, 5) * 24 + 10));
+            int start = Mathf.Max(0, messages.Count - 5);
+            for (int i = start; i < messages.Count; i++)
             {
-                DrawPendingCodePanel();
-                usedHeight += 65f + PADDING;
+                var msg = messages[i];
+                string prefix = msg.isUser ? "我: " : "🐙: ";
+                EditorGUILayout.LabelField(prefix + Truncate(msg.content, 80), EditorStyles.wordWrappedLabel);
             }
-
-            // Chat area - fills remaining space
-            float chatHeight = availableHeight - usedHeight - INPUT_HEIGHT - STATUS_HEIGHT - INPUT_MARGIN;
-            chatHeight = Mathf.Max(chatHeight, CHAT_MIN_HEIGHT);
-
-            DrawChatArea(chatHeight);
-            usedHeight += chatHeight + INPUT_MARGIN;
-
-            // Input area
-            DrawInputArea();
-            usedHeight += INPUT_HEIGHT + INPUT_MARGIN;
-
-            // Status bar
-            DrawStatusBar();
+            EditorGUILayout.EndScrollView();
         }
+
+        // 输入框（永远在底部）
+        EditorGUILayout.BeginHorizontal();
+        GUI.SetNextControlName("ChatInput");
+        inputText = EditorGUILayout.TextField(inputText, GUILayout.Height(24));
+        GUI.enabled = !isProcessing && !string.IsNullOrWhiteSpace(inputText);
+        if (GUILayout.Button("→", GUILayout.Width(30), GUILayout.Height(24)))
+            SendMessage();
+        GUI.enabled = true;
+        EditorGUILayout.EndHorizontal();
+    }
+
+    string Truncate(string s, int maxLen)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Length > maxLen ? s.Substring(0, maxLen) + "..." : s;
     }
 
     void DrawToolbar()

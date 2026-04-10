@@ -31,9 +31,9 @@ public class GameAIAssistant : EditorWindow
     private string apiKey = "";
     private string selectedModel = "deepseek-chat";
     private string selectedLanguage = "zh";
-    private string modelType = "cloud";  // "cloud" or "local"
+    private string modelType = "local";  // "cloud" or "local"
     private string localUrl = "http://localhost:11434/v1";
-    private string selectedLocalModel = "qwen2.5:3b";
+    private string selectedLocalModel = "qwen2.5:0.5b";
     private bool autoContext = true;
 
     // Code blocks
@@ -860,7 +860,19 @@ public class GameAIAssistant : EditorWindow
                 else
                 {
                     string aiResponse = ParseAIResponse(responseText);
-                    AddMessage(aiResponse, false);
+
+                    // Ziva 风格：尝试解析并执行动作
+                    string actionResult = GameAIExecutor.ParseAndExecute(aiResponse);
+                    if (!string.IsNullOrEmpty(actionResult))
+                    {
+                        // AI 返回了可执行的动作，已自动执行
+                        AddMessage("✅ **自动执行完成**\n\n" + actionResult, false);
+                    }
+                    else
+                    {
+                        AddMessage(aiResponse, false);
+                    }
+
                     ExtractAndPreviewCode(aiResponse);
                 }
             }
@@ -1062,8 +1074,6 @@ After generating code, remind user they can use Apply to save." + projectInfo;
             return "Built-in";
         }
         catch { return "未知"; }
-    } Unity " + currentUnityVersion;
-        }
     }
 
     string BuildRequestJson(List<Dictionary<string, string>> messages_list)
@@ -1640,6 +1650,424 @@ public static class GameAIExecutor
         {
             UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene);
             return "✓ 场景已保存";
+        }
+    }
+
+    // ============================================================
+    // Ziva 风格增强：自动上下文读取
+    // ============================================================
+
+    // 自动收集上下文（根据用户输入关键词）
+    public static string AutoGatherContext(string userInput)
+    {
+        var ctx = new System.Text.StringBuilder();
+        var lower = userInput.ToLower();
+
+        // 错误关键词 → 读 Console 日志
+        string[] errorKw = { "报错", "error", "bug", "崩溃", "闪退", "null", "failed", "修复", "为什么" };
+        bool hasError = false;
+        foreach (var kw in errorKw) { if (lower.Contains(kw)) { hasError = true; break; } }
+        if (hasError)
+        {
+            ctx.AppendLine("【自动读取：Unity Console 日志】");
+            ctx.AppendLine(ReadConsoleLogs());
+            ctx.AppendLine("━━━━━━━━━━━━━━━━━━━━");
+        }
+
+        // 场景/层级关键词 → 读 Hierarchy
+        string[] sceneKw = { "场景", "scene", "结构", "hierarchy", "节点", "gameobject" };
+        bool hasScene = false;
+        foreach (var kw in sceneKw) { if (lower.Contains(kw)) { hasScene = true; break; } }
+        if (hasScene)
+        {
+            ctx.AppendLine("【场景层级】");
+            ctx.AppendLine(ReadHierarchy());
+            ctx.AppendLine("━━━━━━━━━━━━━━━━━━━━");
+        }
+
+        // 选中物体关键词 → 读选中对象
+        string[] selectKw = { "选中", "selected", "当前", "属性", "properties" };
+        bool hasSelected = false;
+        foreach (var kw in selectKw) { if (lower.Contains(kw)) { hasSelected = true; break; } }
+        if (hasSelected)
+        {
+            var sel = ReadSelectedGameObjects();
+            if (!string.IsNullOrEmpty(sel))
+            {
+                ctx.AppendLine("【选中对象】");
+                ctx.AppendLine(sel);
+                ctx.AppendLine("━━━━━━━━━━━━━━━━━━━━");
+            }
+        }
+
+        return ctx.ToString();
+    }
+
+    // 读取 Unity Console 日志
+    public static string ReadConsoleLogs()
+    {
+        try
+        {
+            var logPath = System.IO.Path.Combine(Application.dataPath, "..", "Temp", "Player.log");
+            if (!System.IO.File.Exists(logPath)) return "（无 Player.log）";
+
+            var lines = System.IO.File.ReadAllLines(logPath);
+            var errors = new System.Collections.Generic.List<string>();
+            foreach (var line in lines)
+            {
+                var l = line.ToLower();
+                if (l.Contains("error") || l.Contains("exception") || l.Contains("fail") || l.Contains("nullref"))
+                    errors.Add(line.Trim());
+            }
+            if (errors.Count == 0) return "（无错误日志）";
+
+            var recent = errors.GetRange(System.Math.Max(0, errors.Count - 20), System.Math.Min(20, errors.Count));
+            return string.Join("\n", recent);
+        }
+        catch { return "（读取日志失败）"; }
+    }
+
+    // 读取场景层级
+    public static string ReadHierarchy()
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            var roots = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().GetRootGameObjects();
+            foreach (var root in roots)
+            {
+                sb.AppendLine("📂 " + root.name);
+                ReadChildrenRecursive(root.transform, sb, 1, 6);
+            }
+            return sb.ToString();
+        }
+        catch { return "（读取层级失败）"; }
+    }
+
+    static void ReadChildrenRecursive(Transform t, System.Text.StringBuilder sb, int depth, int maxDepth)
+    {
+        if (depth > maxDepth) return;
+        foreach (Transform child in t)
+        {
+            var extra = "";
+            var components = child.GetComponents<Component>();
+            foreach (var c in components)
+            {
+                if (c is Rigidbody) extra += " [Rigidbody]";
+                else if (c is Collider) extra += " [Collider]";
+                else if (c is Renderer) extra += " [Renderer]";
+                else if (c is MonoBehaviour) { var m = c as MonoBehaviour; extra += " [" + m.GetType().Name + "]"; }
+            }
+            sb.AppendLine(new string(' ', depth * 2) + "├─ " + child.name + extra);
+            ReadChildrenRecursive(child, sb, depth + 1, maxDepth);
+        }
+    }
+
+    // 读取选中的 GameObject
+    public static string ReadSelectedGameObjects()
+    {
+        try
+        {
+            var selected = Selection.activeGameObject;
+            if (!selected) return "（无选中对象）";
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("选中: " + selected.name);
+            sb.AppendLine("路径: " + GetGameObjectPath(selected));
+            sb.AppendLine("位置: " + selected.transform.position);
+            sb.AppendLine("缩放: " + selected.transform.localScale);
+            sb.AppendLine("激活: " + selected.activeSelf);
+            sb.AppendLine("组件:");
+
+            foreach (var c in selected.GetComponents<Component>())
+                sb.AppendLine("  • " + c.GetType().Name);
+
+            // 读子节点
+            if (selected.transform.childCount > 0)
+            {
+                sb.AppendLine("子节点 (" + selected.transform.childCount + "):");
+                foreach (Transform child in selected.transform)
+                    sb.AppendLine("  • " + child.name + " (" + child.childCount + " children)");
+            }
+            return sb.ToString();
+        }
+        catch { return "（读取选中对象失败）"; }
+    }
+
+    static string GetGameObjectPath(GameObject go)
+    {
+        var path = go.name;
+        var p = go.transform.parent;
+        while (p != null)
+        {
+            path = p.name + "/" + path;
+            p = p.parent;
+        }
+        return path;
+    }
+
+    // ============================================================
+    // Ziva 风格：截图功能
+    // ============================================================
+    public static string CaptureScreenshot()
+    {
+        try
+        {
+            var cam = Camera.main;
+            if (!cam) cam = GameObject.FindObjectOfType<Camera>();
+            if (!cam) return "⚠ 未找到相机";
+
+            var rt = new RenderTexture(1280, 720, 24);
+            cam.targetTexture = rt;
+            cam.Render();
+            RenderTexture.active = rt;
+
+            var tex = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
+            tex.Apply();
+
+            cam.targetTexture = null;
+            RenderTexture.active = null;
+            UnityEngine.Object.DestroyImmediate(rt);
+
+            var bytes = tex.EncodeToPNG();
+            UnityEngine.Object.DestroyImmediate(tex);
+
+            var path = "Assets/Screenshots/screenshot_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
+            EnsureDirectory("Assets/Screenshots");
+            System.IO.File.WriteAllBytes(path, bytes);
+            AssetDatabase.Refresh();
+
+            return "✓ 截图已保存: " + path;
+        }
+        catch (System.Exception ex) { return "⚠ 截图失败: " + ex.Message; }
+    }
+
+    static void EnsureDirectory(string path)
+    {
+        if (!System.IO.Directory.Exists(path))
+            System.IO.Directory.CreateDirectory(path);
+    }
+
+    // ============================================================
+    // Ziva 风格：AI 动作解析执行
+    // ============================================================
+    public static string ParseAndExecute(string response)
+    {
+        // 查找 JSON 块
+        var jsonStart = response.IndexOf('{');
+        var jsonEnd = response.LastIndexOf('}');
+        if (jsonStart < 0 || jsonEnd < 0 || jsonEnd < jsonStart) return "";
+
+        var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
+
+        // 简单 JSON 解析（不用 Unity 的 JsonUtility）
+        var action = ExtractJsonString(jsonStr, "action");
+        if (string.IsNullOrEmpty(action)) return "";
+
+        var validActions = new string[] {
+            "create_node", "delete_node", "modify_property", "rename",
+            "duplicate", "reparent", "set_active", "add_component",
+            "screenshot", "show_in_inspector"
+        };
+        bool isValid = false;
+        foreach (var a in validActions) { if (a == action) { isValid = true; break; } }
+        if (!isValid) return "";
+
+        // 执行动作
+        var results = new System.Text.StringBuilder();
+        bool allSuccess = true;
+
+        switch (action)
+        {
+            case "screenshot":
+                results.AppendLine(CaptureScreenshot());
+                break;
+
+            case "create_node":
+                var type = ExtractJsonString(jsonStr, "type");
+                var name = ExtractJsonString(jsonStr, "name");
+                results.AppendLine(CreateGameObjectByType(type, name));
+                break;
+
+            case "delete_node":
+                var path = ExtractJsonString(jsonStr, "path");
+                if (!string.IsNullOrEmpty(path))
+                {
+                    var go = FindGameObjectByPath(path);
+                    if (go) { Undo.DestroyObjectImmediate(go); results.AppendLine("✓ 已删除 " + go.name); }
+                    else results.AppendLine("⚠ 找不到: " + path);
+                }
+                break;
+
+            case "rename":
+                var oldPath = ExtractJsonString(jsonStr, "path");
+                var newName = ExtractJsonString(jsonStr, "name");
+                if (!string.IsNullOrEmpty(oldPath) && !string.IsNullOrEmpty(newName))
+                {
+                    var go = FindGameObjectByPath(oldPath);
+                    if (go) { Undo.RegisterFullObjectHierarchyUndo(go, "Rename"); go.name = newName; results.AppendLine("✓ 已重命名为 " + newName); }
+                    else results.AppendLine("⚠ 找不到: " + oldPath);
+                }
+                break;
+
+            case "set_active":
+                var actPath = ExtractJsonString(jsonStr, "path");
+                var activeStr = ExtractJsonString(jsonStr, "active");
+                if (!string.IsNullOrEmpty(actPath))
+                {
+                    var go = FindGameObjectByPath(actPath);
+                    if (go)
+                    {
+                        bool active = string.IsNullOrEmpty(activeStr) || activeStr == "true" || activeStr == "1";
+                        Undo.RegisterFullObjectHierarchyUndo(go, "Set Active");
+                        go.SetActive(active);
+                        results.AppendLine("✓ " + go.name + " → " + (active ? "激活" : "隐藏"));
+                    }
+                    else results.AppendLine("⚠ 找不到: " + actPath);
+                }
+                break;
+
+            case "add_component":
+                var compPath = ExtractJsonString(jsonStr, "path");
+                var compType = ExtractJsonString(jsonStr, "component");
+                if (!string.IsNullOrEmpty(compPath) && !string.IsNullOrEmpty(compType))
+                {
+                    var go = FindGameObjectByPath(compPath);
+                    if (go)
+                    {
+                        var added = AddComponentByName(go, compType);
+                        results.AppendLine(added);
+                    }
+                    else results.AppendLine("⚠ 找不到: " + compPath);
+                }
+                break;
+
+            case "show_in_inspector":
+                var inspPath = ExtractJsonString(jsonStr, "path");
+                if (!string.IsNullOrEmpty(inspPath))
+                {
+                    var go = FindGameObjectByPath(inspPath);
+                    if (go) { Selection.activeGameObject = go; results.AppendLine("✓ 已在 Inspector 中选中 " + go.name); }
+                    else results.AppendLine("⚠ 找不到: " + inspPath);
+                }
+                break;
+        }
+
+        return results.ToString().Trim();
+    }
+
+    // 简单 JSON 字段提取
+    static string ExtractJsonString(string json, string key)
+    {
+        var pattern = "\"" + key + "\"\\s*:\\s*\"([^\"]*)\"";
+        var match = System.Text.RegularExpressions.Regex.Match(json, pattern);
+        return match.Success ? match.Groups[1].Value : "";
+    }
+
+    // 按类型创建 GameObject
+    static string CreateGameObjectByType(string type, string name)
+    {
+        if (string.IsNullOrEmpty(type)) type = "cube";
+        type = type.ToLower();
+
+        GameObject go = null;
+        switch (type)
+        {
+            case "plane": case "ground": go = GameObject.CreatePrimitive(PrimitiveType.Plane); break;
+            case "cube": case "box": go = GameObject.CreatePrimitive(PrimitiveType.Cube); break;
+            case "sphere": case "ball": go = GameObject.CreatePrimitive(PrimitiveType.Sphere); break;
+            case "cylinder": go = GameObject.CreatePrimitive(PrimitiveType.Cylinder); break;
+            case "capsule": go = GameObject.CreatePrimitive(PrimitiveType.Capsule); break;
+            case "quad": go = GameObject.CreatePrimitive(PrimitiveType.Quad); break;
+            default: go = new GameObject(string.IsNullOrEmpty(name) ? type : name); break;
+        }
+
+        if (!string.IsNullOrEmpty(name)) go.name = name;
+        Undo.RegisterCreatedObjectUndo(go, "Create " + type);
+        Selection.activeGameObject = go;
+        return "✓ 已创建 " + (string.IsNullOrEmpty(name) ? type : name);
+    }
+
+    // 按路径查找 GameObject
+    static GameObject FindGameObjectByPath(string path)
+    {
+        // 支持路径格式："/Parent/Child" 或 "Parent/Child"
+        if (string.IsNullOrEmpty(path)) return null;
+        path = path.TrimStart('/');
+
+        var roots = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().GetRootGameObjects();
+        foreach (var root in roots)
+        {
+            if (root.name == path) return root;
+            var found = FindInChildren(root.transform, path);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    static GameObject FindInChildren(Transform parent, string path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+        var parts = path.Split('/');
+        if (parts.Length < 2) return null;
+
+        Transform current = parent;
+        for (int i = 1; i < parts.Length; i++)
+        {
+            var childName = parts[i];
+            Transform next = null;
+            foreach (Transform t in current)
+            {
+                if (t.name == childName) { next = t; break; }
+            }
+            if (!next) return null;
+            current = next;
+        }
+        return current.gameObject;
+    }
+
+    // 按名称添加组件
+    static string AddComponentByName(GameObject go, string typeName)
+    {
+        if (string.IsNullOrEmpty(typeName)) return "⚠ 未指定组件类型";
+
+        switch (typeName.ToLower())
+        {
+            case "rigidbody":
+                if (go.GetComponent<Rigidbody>()) return "⚠ " + go.name + " 已有 Rigidbody";
+                Undo.AddComponent<Rigidbody>(go);
+                return "✓ 已添加 Rigidbody 到 " + go.name;
+
+            case "collider": case "boxcollider":
+                if (go.GetComponent<Collider>()) return "⚠ " + go.name + " 已有 Collider";
+                Undo.AddComponent<BoxCollider>(go);
+                return "✓ 已添加 BoxCollider 到 " + go.name;
+
+            case "light": case "directionallight":
+                var light = go.AddComponent<Light>();
+                light.type = LightType.Directional;
+                Undo.RegisterCreatedObjectUndo(light, "Add Light");
+                return "✓ 已添加 Directional Light 到 " + go.name;
+
+            case "camera": case "cameracomponent":
+                var cam = go.AddComponent<Camera>();
+                Undo.RegisterCreatedObjectUndo(cam, "Add Camera");
+                return "✓ 已添加 Camera 到 " + go.name;
+
+            default:
+                // 尝试动态添加
+                try
+                {
+                    var asm = System.Reflection.Assembly.GetAssembly(typeof(MonoBehaviour));
+                    var type = asm.GetType("UnityEngine." + typeName);
+                    if (type == null) type = asm.GetType(typeName);
+                    if (type == null) return "⚠ 未知组件类型: " + typeName;
+                    var comp = go.AddComponent(type);
+                    Undo.RegisterCreatedObjectUndo(comp, "Add " + typeName);
+                    return "✓ 已添加 " + typeName + " 到 " + go.name;
+                }
+                catch { return "⚠ 添加失败: " + typeName; }
         }
     }
 }

@@ -14,6 +14,7 @@ var config_dialog: Control
 
 # 核心模块
 var ai_handler: Node
+var editor_agent: Node
 var asset_searcher: Node
 var code_generator: Node
 var project_reader: Node
@@ -44,6 +45,11 @@ func _init_core_modules() -> void:
 	ai_handler = preload("res://addons/game_ai_assistant/core/ai_handler.gd").new()
 	ai_handler.name = "GameAIHandler"
 	get_tree().root.add_child(ai_handler)
+	
+	# 编辑器智能体（Ziva风格：自动上下文+直接操作节点）
+	editor_agent = preload("res://addons/game_ai_assistant/core/editor_agent.gd").new()
+	editor_agent.name = "EditorAgent"
+	get_tree().root.add_child(editor_agent)
 	
 	# 素材搜索器
 	asset_searcher = preload("res://addons/game_ai_assistant/core/asset_searcher.gd").new()
@@ -178,6 +184,8 @@ func _exit_tree() -> void:
 	# 清理核心模块
 	if ai_handler:
 		ai_handler.queue_free()
+	if editor_agent:
+		editor_agent.queue_free()
 	if asset_searcher:
 		asset_searcher.queue_free()
 	if code_generator:

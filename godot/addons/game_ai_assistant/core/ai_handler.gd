@@ -12,6 +12,7 @@ signal code_analysis_finished(response: String, analysis_type: String)
 
 var config: Dictionary = {}
 var http_request: HTTPRequest
+var editor_agent: Node  # Ziva风格编辑器智能体
 var is_processing: bool = false
 var conversation_history: Array = []
 
@@ -191,6 +192,8 @@ func _init():
 	http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.request_completed.connect(_on_request_completed)
+	# 获取编辑器智能体（Ziva风格）
+	editor_agent = get_node_or_null("/root/EditorAgent")
 
 func configure(cfg: Dictionary):
 	config = cfg
@@ -1062,6 +1065,12 @@ func _on_request_completed(result: int, response_code: int, headers: Array, body
 		if json and json is Dictionary:
 			var response_text = extract_response(json)
 			
+			# ========== Ziva 风格：解析并执行 AI 动作 ==========
+			var action_result = _try_execute_action(response_text)
+			if action_result != "":
+				# AI 返回了动作，已执行
+				response_text = action_result
+			
 			# 保存到历史（仅普通对话模式）
 			if _analysis_mode == "":
 				conversation_history.append({"role": "user", "content": _pending_user_message})
@@ -1091,6 +1100,63 @@ func _on_request_completed(result: int, response_code: int, headers: Array, body
 		_analysis_mode = ""
 		_pending_user_message = ""
 		thinking_finished.emit("❌ 请求失败: " + str(response_code))
+
+# ========== Ziva 风格：解析并执行 AI 动作 ==========
+func _try_execute_action(response_text: String) -> String:
+	"""
+	检测 AI 回复中是否包含可执行的 JSON 动作，
+	如果包含则通过 editor_agent 执行并返回执行报告
+	"""
+	if not editor_agent:
+		return ""
+	
+	# 查找 JSON 块
+	var json_start = response_text.find("{")
+	var json_end = response_text.rfind("}")
+	
+	if json_start == -1 or json_end == -1 or json_end < json_start:
+		return ""
+	
+	var json_str = response_text.substr(json_start, json_end - json_start + 1)
+	var parsed = JSON.parse_string(json_str)
+	
+	if not parsed or not parsed is Dictionary:
+		return ""
+	
+	var action = parsed.get("action", "")
+	if action == "":
+		return ""
+	
+	# Ziva 支持的动作列表
+	var valid_actions = [
+		"create_node", "delete_node", "modify_property", "rename_node",
+		"duplicate_node", "reparent_node",
+		"tilemap_set_cell", "tilemap_erase_cell", "tilemap_fill_area",
+		"screenshot", "show_in_editor"
+	]
+	
+	var is_valid = false
+	for a in valid_actions:
+		if a == action:
+			is_valid = true
+			break
+	
+	if not is_valid:
+		return ""
+	
+	# 执行动作
+	var exec_result = editor_agent.parse_and_execute(response_text)
+	
+	if not exec_result is Dictionary:
+		return ""
+	
+	var success = exec_result.get("success", false)
+	var message = exec_result.get("message", "执行完成")
+	
+	if success:
+		return "✅ **自动执行成功**\n\n" + message + "\n\n_此操作由 AI 自动执行，无需手动应用_"
+	else:
+		return "⚠️ **动作执行失败**\n\n" + message
 
 func get_help_text() -> String:
 	var lang = config.get("language", "auto")

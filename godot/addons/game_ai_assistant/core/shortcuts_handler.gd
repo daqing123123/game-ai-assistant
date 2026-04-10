@@ -141,20 +141,20 @@ func _generate_code() -> void:
 
 func _capture_screenshot() -> void:
 	# 触发截图
-	var screenshot_handler = get_node_or_valid("/root/ScreenshotHandler")
+	var screenshot_handler = get_node_or_null("/root/ScreenshotHandler")
 	if screenshot_handler:
 		screenshot_handler.capture_editor_viewport()
 		print("📸 截图已捕获")
 
 func _show_today_learning() -> void:
-	var daily_learning = get_node_or_valid("/root/DailyLearning")
+	var daily_learning = get_node_or_null("/root/DailyLearning")
 	if daily_learning:
 		var learning = daily_learning.get_today_learning()
 		if main_panel and main_panel.has_method("add_assistant_message"):
 			main_panel.add_assistant_message(learning["tip"])
 
 func _open_knowledge() -> void:
-	var knowledge_base = get_node_or_valid("/root/KnowledgeBase")
+	var knowledge_base = get_node_or_null("/root/KnowledgeBase")
 	if knowledge_base and main_panel and main_panel.has_method("add_assistant_message"):
 		var entry = knowledge_base.get_random_entry()
 		if entry:

@@ -1,4 +1,4 @@
-extends WindowDialog
+extends Window
 
 # 配置对话框
 

@@ -57,10 +57,6 @@ var screenshot_handler: Node
 var daily_learning: Node
 var knowledge_base: Node
 
-# 状态
-var pending_code_blocks: Array = []
-var pending_preview_index: int = -1
-
 func _ready() -> void:
 	send_btn.pressed.connect(_on_send)
 	clear_btn.pressed.connect(_on_clear)

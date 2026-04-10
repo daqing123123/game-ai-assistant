@@ -87,7 +87,8 @@ func get_thumbnail(max_size: int = 256) -> Image:
 		return image
 	
 	# 创建缩略图
-	var thumb = image.resize(int(image.get_width() * scale), int(image.get_height() * scale), Image.INTERPOLATE_BILINEAR)
+	var thumb = image.duplicate()
+	thumb.resize(int(image.get_width() * scale), int(image.get_height() * scale))
 	return thumb
 
 # 生成场景描述（简化版本）
